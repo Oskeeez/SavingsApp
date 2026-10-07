@@ -76,6 +76,7 @@ fun DeveloperSection(viewModel: SettingsViewModel, debugOffsetMs: Long, modifier
                 DevButton(stringResource(R.string.dev_add_samples)) { viewModel.addSampleWants() }
                 DevButton(stringResource(R.string.dev_make_ready)) { viewModel.makeAllReady() }
                 DevButton(stringResource(R.string.dev_add_coin)) { viewModel.addCoin() }
+                DevButton(stringResource(R.string.dev_add_coins)) { viewModel.addCoins(5) }
                 DevButton(stringResource(R.string.dev_complete_jar)) { viewModel.completeJar() }
                 DevButton(stringResource(R.string.dev_reset_all)) { confirmReset = true }
             }

@@ -70,6 +70,7 @@ class SettingsViewModel(
     fun addSampleWants() = viewModelScope.launch { repository.debugAddSampleWants() }
     fun makeAllReady() = viewModelScope.launch { repository.debugMakeAllReady() }
     fun addCoin() = viewModelScope.launch { repository.debugAddCoin() }
+    fun addCoins(count: Int) = viewModelScope.launch { repository.debugAddCoins(count) }
     fun completeJar() = viewModelScope.launch { repository.debugCompleteJar() }
     fun resetAllData() = viewModelScope.launch { repository.debugResetAll() }
 

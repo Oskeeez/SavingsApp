@@ -8,5 +8,8 @@ package com.example.coolingoffjar.ui.navigation
 sealed class Destination(val route: String) {
     data object Home : Destination("home")
     data object Shop : Destination("shop")
+    data object ShopItem : Destination("shop/{itemId}") {
+        fun route(itemId: String) = "shop/$itemId"
+    }
     data object Settings : Destination("settings")
 }

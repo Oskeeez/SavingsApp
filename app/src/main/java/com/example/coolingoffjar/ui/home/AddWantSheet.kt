@@ -120,10 +120,10 @@ fun AddWantSheet(
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = palette.gold,
-                    contentColor = palette.onGold,
-                    disabledContainerColor = palette.gold.copy(alpha = 0.35f),
-                    disabledContentColor = palette.onGold.copy(alpha = 0.6f),
+                    containerColor = palette.sageDeep,
+                    contentColor = palette.onSage,
+                    disabledContainerColor = palette.sageDeep.copy(alpha = 0.35f),
+                    disabledContentColor = palette.onSage.copy(alpha = 0.7f),
                 ),
             ) {
                 Text(stringResource(R.string.add_confirm), style = MaterialTheme.typography.labelLarge)

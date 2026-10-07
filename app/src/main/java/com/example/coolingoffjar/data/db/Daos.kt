@@ -52,9 +52,28 @@ interface JarDao {
     @Query("SELECT * FROM jars WHERE id = :id")
     fun observeById(id: Long): Flow<JarEntity?>
 
+    /** Every coin that has ever gone into any jar: the coins earned so far. */
+    @Query("SELECT COALESCE(SUM(filledCount), 0) FROM jars")
+    fun observeTotalCoins(): Flow<Int>
+
+    @Query("SELECT COALESCE(SUM(filledCount), 0) FROM jars")
+    suspend fun totalCoins(): Int
+
     @Insert
     suspend fun insert(jar: JarEntity): Long
 
     @Update
     suspend fun update(jar: JarEntity)
+}
+
+@Dao
+interface ShelfDao {
+    @Query("SELECT * FROM owned_items ORDER BY purchasedAt ASC")
+    fun observeOwned(): Flow<List<OwnedItemEntity>>
+
+    @Query("SELECT * FROM owned_items ORDER BY purchasedAt ASC")
+    suspend fun getOwned(): List<OwnedItemEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insert(item: OwnedItemEntity)
 }

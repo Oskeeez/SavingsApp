@@ -84,7 +84,7 @@ fun DecisionSheet(
                 onClick = { decide(onNotBuying) },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp),
                 shape = MaterialTheme.shapes.extraLarge,
-                colors = ButtonDefaults.buttonColors(containerColor = palette.gold, contentColor = palette.onGold),
+                colors = ButtonDefaults.buttonColors(containerColor = palette.sageDeep, contentColor = palette.onSage),
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(stringResource(R.string.decision_not_buying), style = MaterialTheme.typography.labelLarge)

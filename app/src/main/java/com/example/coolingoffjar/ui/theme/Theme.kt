@@ -23,8 +23,9 @@ object JarTheme {
 private fun JarPalette.toColorScheme() =
     if (isDark) {
         darkColorScheme(
-            primary = gold,
-            onPrimary = onGold,
+            primary = sageDeep,
+            onPrimary = onSage,
+            tertiary = gold,
             secondary = textSecondary,
             background = background,
             onBackground = text,
@@ -39,8 +40,9 @@ private fun JarPalette.toColorScheme() =
         )
     } else {
         lightColorScheme(
-            primary = gold,
-            onPrimary = onGold,
+            primary = sageDeep,
+            onPrimary = onSage,
+            tertiary = gold,
             secondary = textSecondary,
             background = background,
             onBackground = text,

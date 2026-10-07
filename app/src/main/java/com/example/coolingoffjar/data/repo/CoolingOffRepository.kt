@@ -168,6 +168,11 @@ class CoolingOffRepository(
         completed?.let { announceCompletion(it) }
     }
 
+    /** Adds [count] coins one after another (completing jars as they fill). Handy for trying the shop. */
+    suspend fun debugAddCoins(count: Int) {
+        repeat(count) { debugAddCoin() }
+    }
+
     /** Fills the current jar to N and completes it. */
     suspend fun debugCompleteJar() {
         val completed = db.withTransaction {

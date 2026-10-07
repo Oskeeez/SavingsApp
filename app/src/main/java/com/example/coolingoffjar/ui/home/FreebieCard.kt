@@ -67,7 +67,7 @@ fun FreebieCard(onUseFreebie: () -> Unit, onLater: () -> Unit, modifier: Modifie
                     onClick = onUseFreebie,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(top = 8.dp),
                     shape = MaterialTheme.shapes.extraLarge,
-                    colors = ButtonDefaults.buttonColors(containerColor = palette.gold, contentColor = palette.onGold),
+                    colors = ButtonDefaults.buttonColors(containerColor = palette.sageDeep, contentColor = palette.onSage),
                 ) {
                     Text(stringResource(R.string.freebie_use), style = MaterialTheme.typography.labelLarge)
                 }

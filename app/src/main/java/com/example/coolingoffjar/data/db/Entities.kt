@@ -3,6 +3,7 @@ package com.example.coolingoffjar.data.db
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.coolingoffjar.domain.Jar
+import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.Want
 import com.example.coolingoffjar.domain.WantStatus
 
@@ -25,6 +26,18 @@ data class JarEntity(
     val freebieUsed: Boolean,
     val freebieUsedAt: Long?,
 )
+
+/** A shelf item the user has bought, and the slot it stands in. */
+@Entity(tableName = "owned_items")
+data class OwnedItemEntity(
+    @PrimaryKey val itemId: String,
+    val tier: Int,
+    val slot: Int,
+    val purchasedAt: Long,
+)
+
+fun OwnedItemEntity.toDomain() = OwnedItem(itemId, tier, slot, purchasedAt)
+fun OwnedItem.toEntity() = OwnedItemEntity(itemId, tier, slot, purchasedAt)
 
 fun WantEntity.toDomain() = Want(id, name, createdAt, unlockAt, status, decidedAt)
 fun Want.toEntity() = WantEntity(id, name, createdAt, unlockAt, status, decidedAt)

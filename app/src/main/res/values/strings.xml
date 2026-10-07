@@ -77,6 +77,7 @@
     <string name="dev_add_samples">Add sample items</string>
     <string name="dev_make_ready">Make all items ready</string>
     <string name="dev_add_coin">Add a coin</string>
+    <string name="dev_add_coins">Add 5 coins</string>
     <string name="dev_complete_jar">Complete jar now</string>
     <string name="dev_reset_all">Reset all data</string>
     <string name="dev_reset_title">Reset everything?</string>
@@ -92,5 +93,57 @@
     <string name="memory_jar_body">Completed %1$s. You waited it out, and the freebie has been used.</string>
     <string name="ok">OK</string>
     <string name="shop_title">Shelf Shop</string>
-    <string name="shop_soon">A first look at what is coming for your shelf. Nothing to buy just yet.</string>
+
+    <!-- Jar on the shelf and the jar scene -->
+    <string name="jar_open_description">Your jar, %1$d of %2$d full. Open it.</string>
+    <plurals name="jar_open_description_ready">
+        <item quantity="one">Your jar, %1$d of %2$d full. %3$d item is ready for your decision. Open it.</item>
+        <item quantity="other">Your jar, %1$d of %2$d full. %3$d items are ready for your decision. Open it.</item>
+    </plurals>
+    <string name="scene_title">Take your time.</string>
+    <string name="scene_subtitle">A little patience now, a happier you later.</string>
+    <string name="scene_progress">%1$d of %2$d</string>
+    <string name="scene_waiting">Waiting on…</string>
+    <string name="scene_note">Good things take time.</string>
+    <string name="scene_back">Back to the shelf</string>
+
+    <!-- Waiting list cards -->
+    <string name="item_added_today">Added today</string>
+    <plurals name="item_added_days_ago">
+        <item quantity="one">Added %d day ago</item>
+        <item quantity="other">Added %d days ago</item>
+    </plurals>
+    <string name="item_ready_short">Ready to decide</string>
+    <string name="item_more_options">More options for %1$s</string>
+    <string name="item_remove">Remove</string>
+    <string name="item_removed">Removed from your list</string>
+    <string name="undo">Undo</string>
+
+    <!-- Shop -->
+    <string name="shop_subtitle">Use your coins to grow a space that feels like you.</string>
+    <string name="shop_all">All</string>
+    <string name="shop_owned">On your shelf</string>
+    <string name="shop_owned_button">On your shelf</string>
+    <string name="shop_view_shelf">See it on your shelf</string>
+    <string name="shop_preview">Preview on your shelf</string>
+    <string name="shop_note">Your shelf is yours. New things stand in the next free spot.</string>
+    <string name="shop_placed">%1$s is on your shelf</string>
+    <string name="shop_not_enough_snackbar">Not enough coins yet. Every time you wait, you earn one.</string>
+    <string name="shop_card_owned_description">%1$s, already on your shelf</string>
+    <plurals name="shop_card_description">
+        <item quantity="one">%1$s, %2$d coin</item>
+        <item quantity="other">%1$s, %2$d coins</item>
+    </plurals>
+    <plurals name="shop_balance_description">
+        <item quantity="one">You have %d coin</item>
+        <item quantity="other">You have %d coins</item>
+    </plurals>
+    <plurals name="shop_get_for">
+        <item quantity="one">Get for %d coin</item>
+        <item quantity="other">Get for %d coins</item>
+    </plurals>
+    <plurals name="shop_need_more">
+        <item quantity="one">Need %d more coin</item>
+        <item quantity="other">Need %d more coins</item>
+    </plurals>
 </resources>

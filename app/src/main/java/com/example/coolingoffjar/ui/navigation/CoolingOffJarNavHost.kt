@@ -4,11 +4,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.compose.rememberNavController
 import com.example.coolingoffjar.ui.home.HomeScreen
 import com.example.coolingoffjar.ui.settings.SettingsScreen
+import com.example.coolingoffjar.ui.shop.ShopDetailScreen
 import com.example.coolingoffjar.ui.shop.ShopScreen
 
 @Composable
@@ -30,7 +33,21 @@ fun CoolingOffJarNavHost() {
             )
         }
         composable(Destination.Shop.route) {
-            ShopScreen(onBack = { navController.popBackStack() })
+            ShopScreen(
+                onBack = { navController.popBackStack() },
+                onOpenItem = { navController.navigate(Destination.ShopItem.route(it)) },
+            )
+        }
+        composable(
+            route = Destination.ShopItem.route,
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType }),
+        ) { entry ->
+            ShopDetailScreen(
+                itemId = entry.arguments?.getString("itemId").orEmpty(),
+                onBack = { navController.popBackStack() },
+                // Back to the shelf itself, whatever path got us here.
+                onViewShelf = { navController.popBackStack(Destination.Home.route, inclusive = false) },
+            )
         }
         composable(Destination.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })
