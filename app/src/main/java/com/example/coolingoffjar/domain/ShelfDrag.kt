@@ -32,4 +32,29 @@ object ShelfDrag {
         val (bx, by) = anchor(item, best)
         return if (hypot(bx - centerX, by - centerY) <= MAX_DISTANCE) best else null
     }
+
+    /** How close (scene px) a dropped thing's centre must be to a storage box's centre to go into it. */
+    const val STORAGE_RADIUS = 46f
+
+    /**
+     * If something let go with its centre at ([centerX], [centerY]) is over a displayed storage box, the id of that box.
+     * Boxes, the jar and the other always-there objects cannot be put away; notes and shelf items can.
+     */
+    fun storageTarget(owned: List<OwnedItem>, itemId: String, centerX: Float, centerY: Float): String? {
+        val item = ShelfCatalog.find(itemId) ?: return null
+        if (item.category == ShelfCategory.CORE || itemId in ShelfLayout.STORAGE_BOXES || item.surface == ShelfSurface.DECOR) return null
+        return ShelfLayout.resolve(owned)
+            .filter { it.itemId in ShelfLayout.STORAGE_BOXES }
+            .firstOrNull { box ->
+                val entry = ShelfCatalog.find(box.itemId) ?: return@firstOrNull false
+                val (bx, by) = anchor(entry, box.slotRef)
+                hypot(bx - centerX, by - centerY) <= STORAGE_RADIUS
+            }?.itemId
+    }
+
+    /** Centre of a displayed storage box (scene px), for drawing the "drop here" hint. */
+    fun boxCenter(owned: List<OwnedItem>, boxId: String): Pair<Float, Float>? {
+        val box = ShelfLayout.resolve(owned).firstOrNull { it.itemId == boxId } ?: return null
+        return ShelfCatalog.find(boxId)?.let { anchor(it, box.slotRef) }
+    }
 }

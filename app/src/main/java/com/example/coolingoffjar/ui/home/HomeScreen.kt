@@ -75,6 +75,7 @@ private const val ZoomMillis = 1100
 fun HomeScreen(
     onOpenShop: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenStorage: () -> Unit,
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -86,6 +87,7 @@ fun HomeScreen(
     var memoryJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var spendJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var justAddedId by remember { mutableLongStateOf(-1L) }
+    var textDialog by rememberSaveable { mutableStateOf(false) }
     var zoomId by rememberSaveable { mutableStateOf<String?>(null) } // the object the camera is zoomed on, if any
     var lastZoomId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -154,6 +156,11 @@ fun HomeScreen(
             onOpenShop = onOpenShop,
             onOpenSettings = onOpenSettings,
             onMemoryJar = { memoryJarId = it.id },
+            text = state.text,
+            onTextTap = { textDialog = true },
+            onMoveText = viewModel::moveText,
+            onOpenStorage = onOpenStorage,
+            onStoreItem = viewModel::storeItem,
             onMoveItem = viewModel::moveItem,
             onMoveNote = viewModel::moveNote,
             zoom = { zoom },
@@ -220,6 +227,15 @@ fun HomeScreen(
         }
 
         SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    }
+
+    if (textDialog) {
+        TextOptionsDialog(
+            text = state.text,
+            onRename = viewModel::renameText,
+            onRemove = viewModel::removeText,
+            onDismiss = { textDialog = false },
+        )
     }
 
     if (showAddSheet) {

@@ -6,9 +6,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -31,6 +31,7 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -66,6 +67,7 @@ import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.JarArt
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.RoomText
 import com.example.coolingoffjar.domain.SceneCamera
 import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.ShelfCatalog
@@ -80,6 +82,7 @@ import com.example.coolingoffjar.ui.jar.JarAspect
 import com.example.coolingoffjar.ui.jar.jarStateRes
 import com.example.coolingoffjar.ui.theme.JarTheme
 import com.example.coolingoffjar.ui.util.formatDate
+import kotlin.math.max
 
 /**
  * The room: a wall, a floor and the bookcase, drawn as one fixed picture that is scaled to cover the screen (the edge
@@ -101,6 +104,11 @@ fun ShelfScene(
     onOpenSettings: () -> Unit,
     onMemoryJar: (Jar) -> Unit,
     modifier: Modifier = Modifier,
+    text: RoomText = RoomText(),
+    onTextTap: () -> Unit = {},
+    onMoveText: ((ScenePoint) -> Unit)? = null,
+    onOpenStorage: () -> Unit = {},
+    onStoreItem: ((String) -> Unit)? = null,
     onMoveItem: ((String, SlotRef) -> Unit)? = null,
     onMoveNote: ((String, ScenePoint) -> Unit)? = null,
     placement: PlacementMode? = null,
@@ -111,9 +119,13 @@ fun ShelfScene(
     // Drops that have been sent but not yet saved are shown straight away so nothing flicks back.
     var pendingSlot by remember { mutableStateOf<Pair<String, SlotRef>?>(null) }
     var pendingNote by remember { mutableStateOf<Pair<String, ScenePoint>?>(null) }
-    LaunchedEffect(owned) { pendingSlot = null; pendingNote = null }
-    val placed = remember(owned, pendingSlot, pendingNote) {
-        ShelfLayout.resolve(owned).map { item ->
+    var pendingStore by remember { mutableStateOf<String?>(null) }
+    var pendingText by remember { mutableStateOf<ScenePoint?>(null) }
+    var panY by remember { mutableFloatStateOf(0f) } // scroll up the wall: 0 = at rest, negative = higher
+    LaunchedEffect(owned) { pendingSlot = null; pendingNote = null; pendingStore = null }
+    LaunchedEffect(text) { pendingText = null }
+    val placed = remember(owned, pendingSlot, pendingNote, pendingStore) {
+        ShelfLayout.resolve(owned).filter { it.itemId != pendingStore }.map { item ->
             val s = pendingSlot
             val n = pendingNote
             when {
@@ -125,6 +137,7 @@ fun ShelfScene(
     }
     var dragId by remember { mutableStateOf<String?>(null) }
     var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    var textDrag by remember { mutableStateOf<Offset?>(null) }
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     val palette = JarTheme.palette
@@ -140,6 +153,9 @@ fun ShelfScene(
         val latestPlaced by rememberUpdatedState(placed)
         val latestMoveItem by rememberUpdatedState(onMoveItem)
         val latestMoveNote by rememberUpdatedState(onMoveNote)
+        val latestStore by rememberUpdatedState(onStoreItem)
+        val latestMoveText by rememberUpdatedState(onMoveText)
+        val latestZoom by rememberUpdatedState(zoom)
         val latestK0 by rememberUpdatedState(k0)
 
         // Where a dragged note is let go (kept on the wall), and where a dragged bookcase item would settle.
@@ -159,8 +175,16 @@ fun ShelfScene(
             Modifier
                 .align(Alignment.Center)
                 .requiredSize(sceneW, sceneH)
+                .pointerInput(Unit) {
+                    // Swipe up/down on the room to look higher or lower on the wall (not while zoomed in on something).
+                    detectVerticalDragGestures { _, dy ->
+                        if (latestZoom() < 0.01f) {
+                            panY = (panY - dy / latestK0).coerceIn(-ShelfGeometry.WALL_EXTRA.toFloat(), 0f)
+                        }
+                    }
+                }
                 .graphicsLayer {
-                    val f = SceneCamera.frame(zoom(), zoomTarget, screenW, screenH)
+                    val f = SceneCamera.frame(zoom(), zoomTarget, screenW, screenH, panY)
                     val s = f.scale / k0
                     scaleX = s
                     scaleY = s
@@ -174,6 +198,56 @@ fun ShelfScene(
                 artRes(look.floor), unit, 0f, ShelfGeometry.WALL_HEIGHT.toFloat(),
                 ShelfGeometry.SCENE_WIDTH.toFloat(), (ShelfGeometry.SCENE_HEIGHT - ShelfGeometry.WALL_HEIGHT).toFloat(),
             )
+            // ---- Notes on the wall, exactly where the user put them. They hang behind the bookcase and everything on it.
+            for (item in placed) {
+                val entry = ShelfCatalog.find(item.itemId) ?: continue
+                if (entry.surface != ShelfSurface.WALL) continue
+                val (w, h) = ShelfLayout.wallSize(entry)
+                val dragging = dragId == item.itemId
+                val point = if (dragging) noteDropPoint(item, entry) else ScenePoint(item.x ?: 0.5f, item.y ?: 0.2f)
+                val cx = point.x * ShelfGeometry.SCENE_WIDTH
+                val cy = point.y * ShelfGeometry.SCENE_HEIGHT
+                val interaction = if (onMoveNote == null || placement != null) Modifier else dragModifier(
+                    key = item.itemId,
+                    dragging = dragging,
+                    translation = Offset.Zero, // the note itself moves (clamped to the wall), not just its picture
+                    onStart = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        dragOffset = Offset.Zero
+                        dragId = item.itemId
+                    },
+                    onDelta = { dragOffset += it },
+                    onEnd = {
+                        val current = latestPlaced.firstOrNull { it.itemId == item.itemId }
+                        if (current != null) {
+                            val drop = noteDropPoint(current, entry)
+                            val box = ShelfDrag.storageTarget(
+                                latestPlaced, item.itemId,
+                                drop.x * ShelfGeometry.SCENE_WIDTH, drop.y * ShelfGeometry.SCENE_HEIGHT,
+                            )
+                            if (box != null && latestStore != null) {
+                                pendingStore = item.itemId
+                                latestStore?.invoke(item.itemId)
+                            } else {
+                                pendingNote = item.itemId to drop
+                                latestMoveNote?.invoke(item.itemId, drop)
+                            }
+                        }
+                        dragId = null
+                        dragOffset = Offset.Zero
+                    },
+                )
+                if (dragging && onStoreItem != null) {
+                    ShelfDrag.storageTarget(placed, item.itemId, cx, cy)?.let { id ->
+                        ShelfDrag.boxCenter(placed, id)?.let { (bx, by) -> SpotMarkerAt(unit, bx, by, 60f) }
+                    }
+                }
+                WallNote(
+                    entry.artKey, unit, cx, cy, w, h,
+                    interaction.pressableIf(placement == null, entry.name) { onObjectTap(item.itemId) },
+                )
+            }
+
             val s = ShelfGeometry.SHELF_SCALE
             SceneImage(
                 R.drawable.shelf_shadow, unit,
@@ -202,8 +276,15 @@ fun ShelfScene(
                     onDelta = { dragOffset += it },
                     onEnd = {
                         val current = latestPlaced.firstOrNull { it.itemId == item.itemId }
+                        val (ax, ay) = if (current != null) ShelfDrag.anchor(entry, current.slotRef) else (0f to 0f)
+                        val box = if (current != null) {
+                            ShelfDrag.storageTarget(latestPlaced, item.itemId, ax + dragOffset.x / latestK0, ay + dragOffset.y / latestK0)
+                        } else null
                         val drop = if (current != null) slotDropTarget(current, entry) else null
-                        if (current != null && drop != null && drop != current.slotRef) {
+                        if (box != null && latestStore != null) {
+                            pendingStore = item.itemId
+                            latestStore?.invoke(item.itemId)
+                        } else if (current != null && drop != null && drop != current.slotRef) {
                             pendingSlot = item.itemId to drop
                             latestMoveItem?.invoke(item.itemId, drop)
                         }
@@ -245,51 +326,24 @@ fun ShelfScene(
                             }
                         }
                     }
+                    "storage_box_green", "storage_boxes_cream" -> ShelfObject(entry, item.tier, x, h, unit, interaction.pressableIf(tap, entry.name, onOpenStorage)) {
+                        Image(painterResource(artRes(entry.artKey)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                    }
                     else -> ShelfObject(entry, item.tier, x, h, unit, interaction.pressableIf(tap, entry.name) { onObjectTap(item.itemId) }) {
                         Image(painterResource(artRes(entry.artKey)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     }
                 }
 
-                // Where it would land if let go now.
-                if (dragging && target != null && target != item.slotRef) {
+                // Where it would land if let go now: into a storage box, or a free slot.
+                val boxHit = if (dragging && onStoreItem != null) {
+                    val (ax, ay) = ShelfDrag.anchor(entry, item.slotRef)
+                    ShelfDrag.storageTarget(placed, item.itemId, ax + dragOffset.x / k0, ay + dragOffset.y / k0)
+                } else null
+                if (boxHit != null) {
+                    ShelfDrag.boxCenter(placed, boxHit)?.let { (bx, by) -> SpotMarkerAt(unit, bx, by, 60f) }
+                } else if (dragging && target != null && target != item.slotRef) {
                     SpotMarkerAt(unit, ShelfGeometry.slotCenterX(target.tier, target.slot), ShelfGeometry.standLine(target.tier) - 22f, 44f)
                 }
-            }
-
-            // ---- Notes on the wall: exactly where the user put them.
-            for (item in placed) {
-                val entry = ShelfCatalog.find(item.itemId) ?: continue
-                if (entry.surface != ShelfSurface.WALL) continue
-                val (w, h) = ShelfLayout.wallSize(entry)
-                val dragging = dragId == item.itemId
-                val point = if (dragging) noteDropPoint(item, entry) else ScenePoint(item.x ?: 0.5f, item.y ?: 0.2f)
-                val cx = point.x * ShelfGeometry.SCENE_WIDTH
-                val cy = point.y * ShelfGeometry.SCENE_HEIGHT
-                val interaction = if (onMoveNote == null || placement != null) Modifier else dragModifier(
-                    key = item.itemId,
-                    dragging = dragging,
-                    translation = Offset.Zero, // the note itself moves (clamped to the wall), not just its picture
-                    onStart = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        dragOffset = Offset.Zero
-                        dragId = item.itemId
-                    },
-                    onDelta = { dragOffset += it },
-                    onEnd = {
-                        val current = latestPlaced.firstOrNull { it.itemId == item.itemId }
-                        if (current != null) {
-                            val drop = noteDropPoint(current, entry)
-                            pendingNote = item.itemId to drop
-                            latestMoveNote?.invoke(item.itemId, drop)
-                        }
-                        dragId = null
-                        dragOffset = Offset.Zero
-                    },
-                )
-                WallNote(
-                    entry.artKey, unit, cx, cy, w, h,
-                    interaction.pressableIf(placement == null, entry.name) { onObjectTap(item.itemId) },
-                )
             }
 
             // ---- Choosing where something new goes.
@@ -330,18 +384,20 @@ fun ShelfScene(
                                 detectTapGestures { set(it) }
                             }
                             .pointerInput(placingEntry.id) {
-                                detectDragGestures { change, _ ->
-                                    change.consume()
-                                    placement.onPoint(
-                                        ShelfLayout.clampWall(
-                                            placingEntry,
-                                            ScenePoint(
-                                                change.position.x / k0 / ShelfGeometry.SCENE_WIDTH,
-                                                change.position.y / k0 / ShelfGeometry.SCENE_HEIGHT,
-                                            ),
-                                        ),
-                                    )
-                                }
+                                // Press and hold, then drag, to slide the note about; a plain swipe still scrolls the wall.
+                                fun at(p: Offset) = placement.onPoint(
+                                    ShelfLayout.clampWall(
+                                        placingEntry,
+                                        ScenePoint(p.x / k0 / ShelfGeometry.SCENE_WIDTH, p.y / k0 / ShelfGeometry.SCENE_HEIGHT),
+                                    ),
+                                )
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = { at(it) },
+                                    onDrag = { change, _ ->
+                                        change.consume()
+                                        at(change.position)
+                                    },
+                                )
                             }
                             .semantics { contentDescription = "Tap the wall to hang the note where you like" },
                     )
@@ -351,29 +407,66 @@ fun ShelfScene(
                 }
             }
 
-            // ---- The heading, on the wall above the bookcase.
-            if (showHeader) {
-                val visLeft = ((ShelfGeometry.SCENE_WIDTH - screenW / k0) / 2f).coerceAtLeast(0f)
-                val visTop = ((ShelfGeometry.SCENE_HEIGHT - screenH / k0) / 2f).coerceAtLeast(0f)
+            // ---- The heading on the wall: drag it anywhere, tap it to rename or remove it.
+            if (showHeader && text.visible) {
+                val rest = SceneCamera.frame(0f, null, screenW, screenH)
+                val visLeft = rest.centerX - screenW / k0 / 2f
+                val visTop = rest.centerY - screenH / k0 / 2f
                 val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                val blockW = screenW * 0.72f / k0 // scene px
+                val baseX = (pendingText?.x ?: text.x)?.let { it * ShelfGeometry.SCENE_WIDTH } ?: (visLeft + 22f / unit.value)
+                val baseY = (pendingText?.y ?: text.y)?.let { it * ShelfGeometry.SCENE_HEIGHT } ?: (visTop + (statusBar.value + 14f) / unit.value)
+                val held = textDrag
+                fun placeAt(off: Offset): ScenePoint = ScenePoint(
+                    (baseX + off.x / k0).coerceIn(0f, max(0f, ShelfGeometry.SCENE_WIDTH - blockW)) / ShelfGeometry.SCENE_WIDTH,
+                    (baseY + off.y / k0).coerceIn(0f, ShelfGeometry.WALL_HEIGHT - 80f) / ShelfGeometry.SCENE_HEIGHT,
+                )
+                val shown = placeAt(held ?: Offset.Zero)
+                val interactive = placement == null && onMoveText != null
                 Column(
                     Modifier
                         .align(Alignment.TopStart)
-                        .offset(x = unit * visLeft + 22.dp, y = unit * visTop + statusBar + 14.dp)
-                        .width(with(density) { (screenW * 0.72f).toDp() }),
+                        .offset(unit * (shown.x * ShelfGeometry.SCENE_WIDTH), unit * (shown.y * ShelfGeometry.SCENE_HEIGHT))
+                        .width(unit * blockW)
+                        .zIndex(if (held != null) 10f else 0f)
+                        .then(
+                            if (!interactive) Modifier else Modifier
+                                .pointerInput(baseX, baseY, k0) {
+                                    detectDragGesturesAfterLongPress(
+                                        onDragStart = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            textDrag = Offset.Zero
+                                        },
+                                        onDrag = { change, amount ->
+                                            change.consume()
+                                            textDrag = (textDrag ?: Offset.Zero) + amount
+                                        },
+                                        onDragEnd = {
+                                            val drop = placeAt(textDrag ?: Offset.Zero)
+                                            pendingText = drop
+                                            textDrag = null
+                                            latestMoveText?.invoke(drop)
+                                        },
+                                        onDragCancel = { textDrag = null },
+                                    )
+                                }
+                                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onTextTap),
+                        ),
                 ) {
                     Text(
-                        stringResource(R.string.shelf_header_title),
+                        text.title,
                         style = MaterialTheme.typography.headlineMedium,
                         color = palette.text,
                         fontWeight = FontWeight.SemiBold,
                     )
-                    Text(
-                        stringResource(R.string.shelf_header_body),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = palette.textSecondary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    if (text.body.isNotEmpty()) {
+                        Text(
+                            text.body,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = palette.textSecondary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
             }
         }

@@ -22,7 +22,7 @@ object SceneCamera {
 
     /** Screen px per scene px so the scene covers the whole screen. */
     fun coverScale(screenW: Float, screenH: Float): Float =
-        max(screenW / ShelfGeometry.SCENE_WIDTH, screenH / ShelfGeometry.SCENE_HEIGHT)
+        max(screenW / ShelfGeometry.SCENE_WIDTH, screenH / ShelfGeometry.VIEW_HEIGHT)
 
     private fun clampAxis(c: Float, sceneSize: Float, halfScreenInScene: Float): Float =
         if (halfScreenInScene * 2f >= sceneSize) sceneSize / 2f else c.coerceIn(halfScreenInScene, sceneSize - halfScreenInScene)
@@ -35,9 +35,10 @@ object SceneCamera {
     )
 
     /** The camera [progress] of the way (0 = whole room, 1 = close up on [target]). */
-    fun frame(progress: Float, target: ZoomTarget?, screenW: Float, screenH: Float): Frame {
+    fun frame(progress: Float, target: ZoomTarget?, screenW: Float, screenH: Float, panY: Float = 0f): Frame {
         val k0 = coverScale(screenW, screenH)
-        val rest = clamp(Frame(k0, ShelfGeometry.SCENE_WIDTH / 2f, ShelfGeometry.SCENE_HEIGHT / 2f), screenW, screenH)
+        // At rest the bottom of the scene (the original picture) fills the screen; [panY] (0 or negative) scrolls up the wall.
+        val rest = clamp(Frame(k0, ShelfGeometry.SCENE_WIDTH / 2f, ShelfGeometry.SCENE_HEIGHT - ShelfGeometry.VIEW_HEIGHT / 2f + panY), screenW, screenH)
         if (target == null || progress <= 0f) return rest
         val p = progress.coerceIn(0f, 1f)
         val kT = (TARGET_HEIGHT * screenH / max(target.height, 1f)).coerceIn(k0, k0 * MAX_ZOOM_FACTOR)

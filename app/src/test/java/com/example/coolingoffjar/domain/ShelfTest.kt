@@ -252,7 +252,7 @@ class ShelfTest {
         val f = SceneCamera.frame(0f, ZoomTarget(300f, 600f, 90f), 1080f, 2400f)
         assertEquals(SceneCamera.coverScale(1080f, 2400f), f.scale, 1e-4f)
         assertEquals(ShelfGeometry.SCENE_WIDTH / 2f, f.centerX, 1e-3f)
-        assertEquals(ShelfGeometry.SCENE_HEIGHT / 2f, f.centerY, 1e-3f)
+        assertEquals(ShelfGeometry.SCENE_HEIGHT - ShelfGeometry.VIEW_HEIGHT / 2f, f.centerY, 1e-3f)
     }
 
     @Test fun `zoom moves smoothly and ends with the object about a third of the screen tall`() {
@@ -263,6 +263,42 @@ class ShelfTest {
             assertTrue(s >= prev); prev = s
         }
         assertEquals(SceneCamera.TARGET_HEIGHT * 2400f, prev * t.height, 2f)
+    }
+
+    @Test fun `scrolling up shows higher wall but never past the top of the picture`() {
+        val w = 1080f; val h = 2400f
+        val rest = SceneCamera.frame(0f, null, w, h)
+        val up = SceneCamera.frame(0f, null, w, h, panY = -ShelfGeometry.WALL_EXTRA.toFloat())
+        assertTrue(up.centerY < rest.centerY)
+        checkCovers(up, w, h)
+        checkCovers(SceneCamera.frame(0f, null, w, h, panY = -5000f), w, h)
+        assertEquals(rest.centerY, SceneCamera.frame(0f, null, w, h, panY = 500f).centerY, 1e-3f) // cannot scroll below the floor
+    }
+
+    // ---- storage ----
+    @Test fun `stored things stay owned but leave the room and free their slot`() {
+        val own = core() + owned("storage_box_green", 2, 0, 1) + owned("bonsai", 3, 0, 2).copy(stored = true)
+        assertTrue(ShelfLayout.resolve(own).none { it.itemId == "bonsai" })
+        assertEquals(PurchaseCheck.AlreadyOwned, ShelfEconomy.check("bonsai", own, 99))
+        assertEquals(ShelfCatalog.find("storage_box_green")!!.cost + ShelfCatalog.find("bonsai")!!.cost, ShelfEconomy.coinsSpent(own))
+        assertFalse(ShelfLayout.taken(ShelfLayout.resolve(own)).contains(SlotRef(3, 0)))
+    }
+
+    @Test fun `dropping something on a storage box puts it away, the box and the jar cannot be`() {
+        val box = ShelfCatalog.find("storage_box_green")!!
+        val own = core() + owned(box.id, 2, 1, 1) + owned("bonsai", 3, 0, 2) + OwnedItem("note_good_days", 0, 0, 3, 0.3f, 0.5f)
+        val (bx, by) = ShelfDrag.anchor(box, SlotRef(2, 1))
+        assertEquals(box.id, ShelfDrag.storageTarget(own, "bonsai", bx + 10, by - 5))
+        assertEquals(box.id, ShelfDrag.storageTarget(own, "note_good_days", bx, by))
+        assertNull(ShelfDrag.storageTarget(own, "bonsai", bx + 200, by))
+        assertNull(ShelfDrag.storageTarget(own, "jar", bx, by))
+        assertNull(ShelfDrag.storageTarget(own, box.id, bx, by))
+    }
+
+    @Test fun `the wall heading text is tidied`() {
+        assertEquals(RoomText.DEFAULT_TITLE to "", RoomText.clean("   ", "  "))
+        assertEquals("Hello" to "x", RoomText.clean(" Hello ", " x "))
+        assertEquals(RoomText.MAX_TITLE, RoomText.clean("a".repeat(100), "").first.length)
     }
 
     // ---- lighting ----

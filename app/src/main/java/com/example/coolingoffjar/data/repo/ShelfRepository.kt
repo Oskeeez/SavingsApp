@@ -6,9 +6,11 @@ import com.example.coolingoffjar.data.db.AppDatabase
 import com.example.coolingoffjar.data.db.DecorChoiceEntity
 import com.example.coolingoffjar.data.db.toDomain
 import com.example.coolingoffjar.data.db.toEntity
+import com.example.coolingoffjar.data.db.RoomTextEntity
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
 import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.RoomText
 import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.ShelfCatalog
 import com.example.coolingoffjar.domain.ShelfCategory
@@ -45,6 +47,9 @@ class ShelfRepository(
     val look: Flow<RoomLook> = combine(owned, shelfDao.observeChoices()) { owned, choices ->
         RoomLook.from(owned.map { it.itemId }.toSet(), choices.associate { it.kind to it.itemId })
     }.distinctUntilChanged()
+
+    /** The heading on the wall. */
+    val text: Flow<RoomText> = shelfDao.observeText().map { it?.toDomain() ?: RoomText() }.distinctUntilChanged()
 
     /** Coins available to spend right now. */
     val balance: Flow<Int> = combine(jarDao.observeTotalCoins(), owned) { earned, owned ->
@@ -120,4 +125,39 @@ class ShelfRepository(
         shelfDao.setChoice(DecorChoiceEntity(entry.category.name, itemId))
         true
     }
+
+    /** Puts something away in a storage box (it stays owned but leaves the room). Only things that can be put away. */
+    suspend fun store(itemId: String): Boolean = db.withTransaction {
+        val entry = ShelfCatalog.find(itemId)
+        val canStore = entry != null && entry.category != ShelfCategory.CORE && entry.surface != ShelfSurface.DECOR &&
+            itemId !in ShelfLayout.STORAGE_BOXES
+        if (!canStore || shelfDao.getOwned().none { it.itemId == itemId }) return@withTransaction false
+        shelfDao.store(itemId)
+        true
+    }
+
+    /** Takes something out of storage and puts it at [slot] (bookcase items) or [point] (notes). */
+    suspend fun place(itemId: String, slot: SlotRef?, point: ScenePoint?): Boolean = db.withTransaction {
+        val owned = shelfDao.getOwned().map { it.toDomain() }
+        val entry = ShelfCatalog.find(itemId)
+        val item = owned.firstOrNull { it.itemId == itemId }
+        if (entry == null || item == null || !item.stored) return@withTransaction false
+        when (entry.surface) {
+            ShelfSurface.SHELF -> {
+                val taken = ShelfLayout.taken(ShelfLayout.resolve(owned))
+                val target = slot?.takeIf { ShelfLayout.isValid(it) && it !in taken } ?: ShelfLayout.nextFreeSlot(taken)
+                    ?: return@withTransaction false
+                shelfDao.place(itemId, target.tier, target.slot, null, null)
+            }
+            ShelfSurface.WALL -> {
+                val p = ShelfLayout.clampWall(entry, point ?: ScenePoint(0.5f, 0.45f))
+                shelfDao.place(itemId, 0, 0, p.x, p.y)
+            }
+            ShelfSurface.DECOR -> return@withTransaction false
+        }
+        true
+    }
+
+    /** Saves the heading on the wall (text, position, shown or removed). */
+    suspend fun saveText(text: RoomText) = shelfDao.setText(text.toEntity())
 }

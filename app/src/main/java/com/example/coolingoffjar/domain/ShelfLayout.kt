@@ -21,6 +21,8 @@ data class OwnedItem(
     val purchasedAt: Long,
     val x: Float? = null,
     val y: Float? = null,
+    /** Put away in a storage box: still owned, but not shown in the room. */
+    val stored: Boolean = false,
 ) {
     val slotRef: SlotRef get() = SlotRef(tier, slot)
 }
@@ -42,9 +44,12 @@ object ShelfLayout {
 
     /** Where successive wall items first appear (scene fractions), until the user moves them. */
     private val WALL_DEFAULTS = listOf(
-        ScenePoint(0.80f, 0.15f), ScenePoint(0.58f, 0.22f), ScenePoint(0.22f, 0.25f),
-        ScenePoint(0.90f, 0.27f), ScenePoint(0.40f, 0.08f), ScenePoint(0.10f, 0.27f),
+        ScenePoint(0.84f, 0.45f), ScenePoint(0.66f, 0.45f), ScenePoint(0.48f, 0.45f),
+        ScenePoint(0.30f, 0.45f), ScenePoint(0.12f, 0.45f), ScenePoint(0.84f, 0.38f),
     )
+
+    /** The storage boxes: drop something on one to put it away, tap one to open the storage. */
+    val STORAGE_BOXES = setOf("storage_box_green", "storage_boxes_cream")
 
     /** Fractions of the scene width at which a level's slots are centred. */
     fun slotXs(tier: Int): List<Float> =
@@ -85,11 +90,11 @@ object ShelfLayout {
      * Where each item really stands. Things on the bookcase keep a saved slot when it is real and not shared (the
      * always-there objects and earlier purchases win a clash); anything else moves to the next free slot, so nothing is
      * hidden or overlapping. Wall items without a position get a default one. Walls, floors and shelves are not
-     * placed, so they are left out.
+     * placed, so they are left out, and so are things put away in storage.
      */
     fun resolve(owned: List<OwnedItem>): List<OwnedItem> {
         val ordered = owned
-            .filter { surfaceOf(it.itemId) != ShelfSurface.DECOR }
+            .filter { surfaceOf(it.itemId) != ShelfSurface.DECOR && !it.stored }
             .sortedWith(compareBy({ if (isCore(it.itemId)) 0 else 1 }, { it.purchasedAt }, { it.itemId }))
         val kept = HashSet<SlotRef>()
         val shelfOk = ordered.associate { item ->

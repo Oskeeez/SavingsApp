@@ -154,7 +154,7 @@ fun ShopScreen(
 
 /** One little box: the illustration, its name, and its price in coins (or "On your shelf"). */
 @Composable
-private fun ProductCard(item: CatalogItem, owned: Boolean, affordable: Boolean, onClick: () -> Unit) {
+internal fun ProductCard(item: CatalogItem, owned: Boolean, affordable: Boolean, onClick: () -> Unit, status: String? = null) {
     val palette = JarTheme.palette
     val description =
         if (owned) stringResource(R.string.shop_card_owned_description, item.name)
@@ -189,7 +189,9 @@ private fun ProductCard(item: CatalogItem, owned: Boolean, affordable: Boolean, 
                 minLines = 2,
                 maxLines = 2,
             )
-            if (owned) {
+            if (status != null) {
+                Text(status, style = MaterialTheme.typography.labelMedium, color = palette.sageDeep, fontWeight = FontWeight.SemiBold)
+            } else if (owned) {
                 Text(stringResource(R.string.shop_owned), style = MaterialTheme.typography.labelMedium, color = palette.sageDeep, fontWeight = FontWeight.SemiBold)
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {

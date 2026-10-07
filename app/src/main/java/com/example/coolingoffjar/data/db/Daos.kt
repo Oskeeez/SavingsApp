@@ -83,6 +83,18 @@ interface ShelfDao {
     @Query("UPDATE owned_items SET posX = :x, posY = :y WHERE itemId = :itemId")
     suspend fun moveFree(itemId: String, x: Float, y: Float)
 
+    @Query("UPDATE owned_items SET stored = 1 WHERE itemId = :itemId")
+    suspend fun store(itemId: String)
+
+    @Query("UPDATE owned_items SET stored = 0, tier = :tier, slot = :slot, posX = :x, posY = :y WHERE itemId = :itemId")
+    suspend fun place(itemId: String, tier: Int, slot: Int, x: Float?, y: Float?)
+
+    @Query("SELECT * FROM room_text WHERE id = 1")
+    fun observeText(): Flow<RoomTextEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setText(text: RoomTextEntity)
+
     @Query("SELECT * FROM decor_choice")
     fun observeChoices(): Flow<List<DecorChoiceEntity>>
 

@@ -47,7 +47,7 @@ fun ShelfBanner(items: List<BannerItem>, look: RoomLook = RoomLook.DEFAULT, modi
                 val dst = IntSize(size.width.roundToInt(), size.height.roundToInt())
                 // The wall behind: same proportions as the strip of shelf.
                 val wallRows = (wall.width * SRC_HEIGHT / ShelfGeometry.SHELF_ART_WIDTH.toFloat()).roundToInt()
-                drawImage(wall, srcOffset = IntOffset(0, 80), srcSize = IntSize(wall.width, wallRows), dstSize = dst, filterQuality = FilterQuality.Medium)
+                drawImage(wall, srcOffset = IntOffset(0, 680), srcSize = IntSize(wall.width, wallRows), dstSize = dst, filterQuality = FilterQuality.Medium)
                 drawImage(shelf, srcOffset = IntOffset(0, SRC_TOP), srcSize = IntSize(shelf.width, SRC_HEIGHT), dstSize = dst, filterQuality = FilterQuality.Medium)
             }
             for (b in items) {

@@ -12,6 +12,7 @@ import com.example.coolingoffjar.data.repo.ShelfRepository
 import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.RoomText
 import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.Settings
 import com.example.coolingoffjar.domain.SlotRef
@@ -38,6 +39,8 @@ data class HomeState(
     val owned: List<OwnedItem> = emptyList(),
     /** The wall, floor and shelf in use. */
     val look: RoomLook = RoomLook.DEFAULT,
+    /** The heading on the wall. */
+    val text: RoomText = RoomText(),
 )
 
 sealed interface HomeEvent {
@@ -60,8 +63,8 @@ class HomeViewModel(
             repository.completedJars,
         ) { jar, wants, settings, celebration, completed -> HomeState(true, jar, wants, settings, celebration, completed) },
         shelfRepository.owned,
-        shelfRepository.look,
-    ) { base, owned, look -> base.copy(owned = owned, look = look) }
+        combine(shelfRepository.look, shelfRepository.text) { look, text -> look to text },
+    ) { base, owned, (look, text) -> base.copy(owned = owned, look = look, text = text) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
     init {
@@ -111,6 +114,25 @@ class HomeViewModel(
     /** Drag and drop on the shelf: the item settles into [slot] if it is free. */
     fun moveItem(itemId: String, slot: SlotRef) {
         viewModelScope.launch { shelfRepository.move(itemId, slot) }
+    }
+
+    /** Drop something onto a storage box: it is put away (and can be taken out again from the box). */
+    fun storeItem(itemId: String) {
+        viewModelScope.launch { shelfRepository.store(itemId) }
+    }
+
+    /** The heading was dragged: it stays where it was let go. */
+    fun moveText(point: ScenePoint) {
+        viewModelScope.launch { shelfRepository.saveText(state.value.text.copy(x = point.x, y = point.y)) }
+    }
+
+    fun renameText(title: String, body: String) {
+        val (t, b) = RoomText.clean(title, body)
+        viewModelScope.launch { shelfRepository.saveText(state.value.text.copy(title = t, body = b)) }
+    }
+
+    fun removeText() {
+        viewModelScope.launch { shelfRepository.saveText(state.value.text.copy(visible = false)) }
     }
 
     /** A note dropped on the wall: it stays exactly where it was let go. */

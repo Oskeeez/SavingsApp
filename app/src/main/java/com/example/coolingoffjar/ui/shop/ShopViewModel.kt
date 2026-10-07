@@ -11,6 +11,7 @@ import com.example.coolingoffjar.data.repo.ShelfRepository
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
 import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.RoomText
 import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.SlotRef
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +33,7 @@ data class ShopState(
     val recentOwnedIds: List<String> = emptyList(),
     /** The wall, floor and shelf currently in use. */
     val look: RoomLook = RoomLook.DEFAULT,
+    val text: RoomText = RoomText(),
 )
 
 sealed interface ShopEvent {
@@ -41,12 +43,30 @@ sealed interface ShopEvent {
 
 class ShopViewModel(private val shelfRepository: ShelfRepository) : ViewModel() {
 
-    val state: StateFlow<ShopState> = combine(shelfRepository.balance, shelfRepository.owned, shelfRepository.look) { balance, owned, look ->
-        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned, owned.map { it.itemId }, look)
+    val state: StateFlow<ShopState> = combine(
+        combine(shelfRepository.balance, shelfRepository.owned, shelfRepository.look) { balance, owned, look -> Triple(balance, owned, look) },
+        shelfRepository.text,
+    ) { (balance, owned, look), text ->
+        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned, owned.map { it.itemId }, look, text)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ShopState())
 
     private val _events = MutableSharedFlow<ShopEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ShopEvent> = _events.asSharedFlow()
+
+    /** Put something away in the storage box. */
+    fun store(itemId: String) {
+        viewModelScope.launch { shelfRepository.store(itemId) }
+    }
+
+    /** Take something out of the storage box and put it back in the room. */
+    fun bringBack(itemId: String, slot: SlotRef?, point: ScenePoint?) {
+        viewModelScope.launch { shelfRepository.place(itemId, slot, point) }
+    }
+
+    /** Hang the heading back on the wall if it was removed. */
+    fun restoreText() {
+        viewModelScope.launch { shelfRepository.saveText(state.value.text.copy(visible = true)) }
+    }
 
     /** Put an owned wall, floor or shelf to use. */
     fun use(itemId: String) {

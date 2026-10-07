@@ -1,7 +1,8 @@
 package com.example.coolingoffjar.domain
 
 /**
- * The room is one fixed picture, the "scene", 664 x 1186 px: a wall on top, then a floor from [WALL_HEIGHT] down. The
+ * The room is one fixed picture, the "scene", 664 x 1786 px: a wall on top (with 600 px of spare wall above the part
+ * that fills the screen at rest), then a floor from [WALL_HEIGHT] down. The
  * five-level bookcase stands on the floor, drawn on top at [SHELF_SCALE]. Everything (objects, notes, the camera when
  * it zooms) is positioned in scene pixels, so nothing ever depends on the screen size and the picture's edge is never
  * shown: the home screen scales the scene to cover the screen and crops the overflow.
@@ -10,8 +11,16 @@ package com.example.coolingoffjar.domain
  */
 object ShelfGeometry {
     const val SCENE_WIDTH = 664
-    const val SCENE_HEIGHT = 1186
-    const val WALL_HEIGHT = 764
+
+    /** Extra wall above the original picture, so the room can be scrolled up to see higher on the wall. */
+    const val WALL_EXTRA = 600
+
+    /** The part of the scene that fills the screen at rest (the original picture); the extra wall lies above it. */
+    const val VIEW_HEIGHT = 1186
+    const val SCENE_HEIGHT = VIEW_HEIGHT + WALL_EXTRA
+
+    /** Where the wall ends and the skirting board / floor begin. */
+    const val WALL_HEIGHT = 764 + WALL_EXTRA
 
     const val LEVELS = 5
     const val SLOTS_PER_LEVEL = 4
@@ -20,7 +29,7 @@ object ShelfGeometry {
     const val SHELF_ART_HEIGHT = 659
     const val SHELF_SCALE = 0.92f
     const val SHELF_LEFT = (SCENE_WIDTH - SHELF_ART_WIDTH * SHELF_SCALE) / 2f
-    const val SHELF_BOTTOM = 871.64f // puts the back edge of the bottom board (native y 542) exactly on the skirting line (WALL_HEIGHT)
+    const val SHELF_BOTTOM = WALL_HEIGHT + 107.64f // puts the back edge of the bottom board (native y 542) exactly on the skirting line (WALL_HEIGHT)
     const val SHELF_TOP = SHELF_BOTTOM - SHELF_ART_HEIGHT * SHELF_SCALE
 
     /** Where things' feet go on each board: a little in from the front edge of the board's top face (native y). */

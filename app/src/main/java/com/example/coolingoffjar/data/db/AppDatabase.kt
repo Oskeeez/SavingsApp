@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class, DecorChoiceEntity::class], version = 4, exportSchema = true)
+@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class, DecorChoiceEntity::class, RoomTextEntity::class], version = 5, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun wantDao(): WantDao
     abstract fun jarDao(): JarDao
@@ -41,9 +41,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5: things can be put away in a storage box, and the heading on the wall can be moved, renamed or removed. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `owned_items` ADD COLUMN `stored` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `room_text` (`id` INTEGER NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, " +
+                        "`posX` REAL, `posY` REAL, `visible` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "cooling_off_jar.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
     }
 }

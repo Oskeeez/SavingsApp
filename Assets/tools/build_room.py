@@ -16,7 +16,11 @@ SHELF_BOX = (760, 227, 1251, 886)
 
 im = Image.open(SRC).convert('RGBA')
 room = im.crop((0, 0, ROOM_W, ROOM_H)).convert('RGB')
-wall = room.crop((0, 0, ROOM_W, WALL_H))
+WALL_EXTRA = 600  # extra wall above the original picture so the room can be scrolled up; the top rows are mirrored
+wall0 = room.crop((0, 0, ROOM_W, WALL_H))
+wall = Image.new('RGB', (ROOM_W, WALL_H + WALL_EXTRA))
+wall.paste(wall0.crop((0, 0, ROOM_W, WALL_EXTRA)).transpose(Image.FLIP_TOP_BOTTOM), (0, 0))
+wall.paste(wall0, (0, WALL_EXTRA))
 floor = room.crop((0, WALL_H, ROOM_W, ROOM_H))
 
 # ---- shelf cut-out: remove the coloured fringe at the edges

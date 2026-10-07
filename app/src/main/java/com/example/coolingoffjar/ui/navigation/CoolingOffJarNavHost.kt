@@ -13,6 +13,7 @@ import com.example.coolingoffjar.ui.home.HomeScreen
 import com.example.coolingoffjar.ui.settings.SettingsScreen
 import com.example.coolingoffjar.ui.shop.ShopDetailScreen
 import com.example.coolingoffjar.ui.shop.ShopScreen
+import com.example.coolingoffjar.ui.shop.StorageScreen
 
 @Composable
 fun CoolingOffJarNavHost() {
@@ -30,6 +31,7 @@ fun CoolingOffJarNavHost() {
             HomeScreen(
                 onOpenShop = { navController.navigate(Destination.Shop.route) },
                 onOpenSettings = { navController.navigate(Destination.Settings.route) },
+                onOpenStorage = { navController.navigate(Destination.Storage.route) },
             )
         }
         composable(Destination.Shop.route) {
@@ -48,6 +50,9 @@ fun CoolingOffJarNavHost() {
                 // Back to the shelf itself, whatever path got us here.
                 onViewShelf = { navController.popBackStack(Destination.Home.route, inclusive = false) },
             )
+        }
+        composable(Destination.Storage.route) {
+            StorageScreen(onBack = { navController.popBackStack() })
         }
         composable(Destination.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })

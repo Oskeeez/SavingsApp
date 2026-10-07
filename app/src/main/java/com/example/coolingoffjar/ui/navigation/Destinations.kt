@@ -12,4 +12,5 @@ sealed class Destination(val route: String) {
         fun route(itemId: String) = "shop/$itemId"
     }
     data object Settings : Destination("settings")
+    data object Storage : Destination("storage")
 }
