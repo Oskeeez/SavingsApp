@@ -13,6 +13,7 @@ import com.example.coolingoffjar.domain.JarRules
 import com.example.coolingoffjar.domain.JarTransition
 import com.example.coolingoffjar.domain.Settings
 import com.example.coolingoffjar.domain.Want
+import com.example.coolingoffjar.domain.WantIcons
 import com.example.coolingoffjar.domain.WantStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -67,7 +68,7 @@ class CoolingOffRepository(
     }
 
     /** Returns the saved want, or null if [name] is blank. unlockAt uses the cool-off setting as of now. */
-    suspend fun addWant(name: String): Want? {
+    suspend fun addWant(name: String, iconKey: String = WantIcons.DEFAULT): Want? {
         val trimmed = name.trim().take(MAX_NAME_LENGTH)
         if (trimmed.isEmpty()) return null
         val now = clock()
@@ -77,6 +78,7 @@ class CoolingOffRepository(
             createdAt = now,
             unlockAt = CoolOffRules.unlockAt(now, days),
             status = WantStatus.COOLING,
+            iconKey = WantIcons.normalize(iconKey),
         )
         return want.copy(id = wantDao.insert(want.toEntity()))
     }
@@ -113,12 +115,25 @@ class CoolingOffRepository(
         wantDao.insert(want.toEntity()) // REPLACE keeps the original id, so the notification can be rescheduled
     }
 
-    /** Honour-based: just records that it was spent. Also clears the celebration card if it was showing. */
-    suspend fun useFreebie(jarId: Long) {
+    /**
+     * Honour-based: records that the freebie was spent, nothing more (no amounts). If it was spent on one of the things
+     * being waited for ([spentOnWantId]), that item is marked as bought: a freebie is a guilt-free "yes", even before the
+     * cooling-off is over. Also clears the celebration card if it was showing.
+     */
+    suspend fun useFreebie(jarId: Long, spentOnWantId: Long? = null) {
         db.withTransaction {
+            val now = clock()
             val jar = jarDao.getById(jarId)?.toDomain() ?: return@withTransaction
-            val updated = JarRules.useFreebie(jar, clock())
-            if (updated != jar) jarDao.update(updated.toEntity())
+            val updated = JarRules.useFreebie(jar, now)
+            if (updated != jar) {
+                jarDao.update(updated.toEntity())
+                if (spentOnWantId != null) {
+                    val want = wantDao.getById(spentOnWantId)?.toDomain()
+                    if (want != null && (want.status == WantStatus.COOLING || want.status == WantStatus.READY)) {
+                        wantDao.setDecision(want.id, WantStatus.BOUGHT, now)
+                    }
+                }
+            }
         }
         dismissCelebration(jarId)
     }

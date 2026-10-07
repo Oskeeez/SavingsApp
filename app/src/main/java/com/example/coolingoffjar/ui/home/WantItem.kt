@@ -7,7 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -42,7 +44,7 @@ import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.CoolOffRules
 import com.example.coolingoffjar.domain.Want
 import com.example.coolingoffjar.domain.WantStatus
-import com.example.coolingoffjar.ui.components.SproutGlyph
+import com.example.coolingoffjar.ui.components.wantIconRes
 import com.example.coolingoffjar.ui.theme.JarTheme
 import com.example.coolingoffjar.ui.util.rememberAnimationsEnabled
 
@@ -89,10 +91,12 @@ fun WantItem(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Box(
-                    Modifier.size(48.dp).background(palette.beige, RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center,
-                ) { SproutGlyph(26.dp, palette.sageDeep) }
+                Image(
+                    painter = painterResource(wantIconRes(want.iconKey)),
+                    contentDescription = null,
+                    modifier = Modifier.size(52.dp),
+                    contentScale = ContentScale.Fit,
+                )
 
                 Column(Modifier.weight(1f)) {
                     Text(want.name, style = MaterialTheme.typography.titleMedium, color = palette.text, maxLines = 2)

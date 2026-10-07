@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class], version = 2, exportSchema = true)
+@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class], version = 3, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun wantDao(): WantDao
     abstract fun jarDao(): JarDao
@@ -25,9 +25,16 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v3: each want can wear an icon. Existing wants get the default sprig. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `wants` ADD COLUMN `iconKey` TEXT NOT NULL DEFAULT 'sprig'")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "cooling_off_jar.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
     }
 }

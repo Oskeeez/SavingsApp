@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.example.coolingoffjar.R
+import com.example.coolingoffjar.domain.ProgressArt
 import com.example.coolingoffjar.ui.theme.JarTheme
 import kotlin.math.PI
 import kotlin.math.sin
@@ -101,28 +104,37 @@ fun CategoryChip(label: String, selected: Boolean, onClick: () -> Unit, modifier
     }
 }
 
-/** "3 of 5": gold dots for coins in the jar, hollow ones for the rest. Long jars fall back to a thin bar. */
+/** The progress picture for state 0..5 (dots filled), from the supplied progress-bar artwork. */
+@androidx.annotation.DrawableRes
+fun progressRes(state: Int): Int = when (state.coerceIn(0, 5)) {
+    0 -> R.drawable.progress_0
+    1 -> R.drawable.progress_1
+    2 -> R.drawable.progress_2
+    3 -> R.drawable.progress_3
+    4 -> R.drawable.progress_4
+    else -> R.drawable.progress_5
+}
+
+/**
+ * "3 of 5": the progress-bar artwork (five dots joined by a line) with the real count beside it. The artwork has five
+ * dots whatever the jar size, so the picture follows the fraction while the words always say the true numbers.
+ */
 @Composable
-fun ProgressDots(filled: Int, total: Int, modifier: Modifier = Modifier) {
+fun JarProgress(filled: Int, perJar: Int, modifier: Modifier = Modifier) {
     val palette = JarTheme.palette
-    if (total <= 10) {
-        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            repeat(total) { i ->
-                val on = i < filled
-                Box(
-                    Modifier
-                        .size(16.dp)
-                        .background(if (on) palette.gold else Color.Transparent, CircleShape)
-                        .border(1.5.dp, if (on) palette.goldShadow else palette.stone, CircleShape),
-                )
-            }
-        }
-    } else {
-        val fraction = (filled.toFloat() / total).coerceIn(0f, 1f)
-        Box(modifier.fillMaxWidth().heightIn(min = 16.dp), contentAlignment = Alignment.CenterStart) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 8.dp, max = 8.dp).background(palette.beige, RoundedCornerShape(50)))
-            Box(Modifier.fillMaxWidth(fraction).heightIn(min = 8.dp, max = 8.dp).background(palette.gold, RoundedCornerShape(50)))
-        }
+    val state = ProgressArt.stateFor(filled, perJar)
+    val description = stringResource(R.string.scene_progress, filled, perJar)
+    Row(
+        modifier.semantics(mergeDescendants = true) { contentDescription = description },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Image(
+            painterResource(progressRes(state)), null,
+            Modifier.weight(1f, fill = false).widthIn(max = 260.dp).fillMaxWidth(),
+            contentScale = ContentScale.FillWidth,
+        )
+        Text(description, style = MaterialTheme.typography.bodyMedium, color = palette.textSecondary)
     }
 }
 

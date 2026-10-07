@@ -6,12 +6,15 @@ sealed interface PurchaseCheck {
     data object UnknownItem : PurchaseCheck
     data object AlreadyOwned : PurchaseCheck
     data class NotEnoughCoins(val shortBy: Int) : PurchaseCheck
+
+    /** The spot asked for is reserved, already taken, or not on the shelf. */
+    data object SlotUnavailable : PurchaseCheck
 }
 
 /**
  * Coins are earned by waiting: every "Not buying" puts one coin in a jar, and every coin that has ever
  * gone into any jar counts, so emptying a jar into the shelf never undoes your patience. Nothing here is
- * money, and nothing is random: you pick exactly what you want.
+ * money, and nothing is random: you pick exactly what you want, and exactly where it goes.
  */
 object ShelfEconomy {
     fun coinsEarned(jarFilledCounts: List<Int>): Int = jarFilledCounts.sum()
@@ -20,11 +23,15 @@ object ShelfEconomy {
 
     fun balance(coinsEarned: Int, owned: List<OwnedItem>): Int = coinsEarned - coinsSpent(owned)
 
-    fun check(itemId: String, owned: List<OwnedItem>, coinsEarned: Int): PurchaseCheck {
+    /** [wantedSlot] is where the user chose to put it; null means "the next free spot". */
+    fun check(itemId: String, owned: List<OwnedItem>, coinsEarned: Int, wantedSlot: SlotRef? = null): PurchaseCheck {
         val item = ShelfCatalog.find(itemId) ?: return PurchaseCheck.UnknownItem
         if (owned.any { it.itemId == itemId }) return PurchaseCheck.AlreadyOwned
         val balance = balance(coinsEarned, owned)
         if (balance < item.cost) return PurchaseCheck.NotEnoughCoins(item.cost - balance)
-        return PurchaseCheck.Ok(ShelfLayout.nextFreeSlot(owned.map { it.slotRef }.toSet()))
+        val taken = ShelfLayout.resolve(owned).map { it.slotRef }.toSet()
+        if (wantedSlot == null) return PurchaseCheck.Ok(ShelfLayout.nextFreeSlot(taken))
+        val usable = ShelfLayout.isValid(wantedSlot) && !ShelfLayout.isReserved(wantedSlot) && wantedSlot !in taken
+        return if (usable) PurchaseCheck.Ok(wantedSlot) else PurchaseCheck.SlotUnavailable
     }
 }

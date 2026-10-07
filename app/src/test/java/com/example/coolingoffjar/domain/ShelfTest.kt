@@ -26,6 +26,13 @@ class ShelfTest {
     }
 
     // ---- reserved slots and placement ----
+    @Test fun `the clock is on the top row and the jar and gacha machine share the second`() {
+        assertEquals(0, ShelfLayout.CLOCK.tier)
+        assertEquals(1, ShelfLayout.JAR.tier)
+        assertEquals(1, ShelfLayout.GACHA.tier)
+        assertTrue(ShelfLayout.JAR.slot != ShelfLayout.GACHA.slot)
+    }
+
     @Test fun `jar gacha and clock slots are reserved`() {
         for (s in listOf(ShelfLayout.JAR, ShelfLayout.GACHA, ShelfLayout.CLOCK) + ShelfLayout.MEMORY_JARS) {
             assertTrue(ShelfLayout.isReserved(s))
@@ -44,9 +51,10 @@ class ShelfTest {
 
     @Test fun `first purchases fill the shelf top to bottom, left to right`() {
         val first = ShelfLayout.nextFreeSlot(emptySet())
-        assertEquals(SlotRef(1, 1), first) // tier 0 is all reserved; clock holds tier 1 slot 0
+        assertEquals(SlotRef(0, 1), first) // the clock holds the top row's first slot
         val second = ShelfLayout.nextFreeSlot(setOf(first))
-        assertEquals(SlotRef(1, 2), second)
+        assertEquals(SlotRef(0, 2), second)
+        // the second row belongs to the jar and the gacha machine, so the next stop is the third row
         assertEquals(SlotRef(2, 0), ShelfLayout.nextFreeSlot(setOf(first, second)))
     }
 
@@ -136,5 +144,65 @@ class ShelfTest {
             if (r is PurchaseCheck.Ok) own = own + OwnedItem(item.id, r.slot.tier, r.slot.slot, 0)
             assertTrue(ShelfEconomy.balance(10, own) >= 0)
         }
+    }
+
+    // ---- choosing where it goes ----
+    @Test fun `a chosen free slot is used`() {
+        val item = ShelfCatalog.find("pen_cup")!!
+        val chosen = SlotRef(3, 1)
+        assertEquals(PurchaseCheck.Ok(chosen), ShelfEconomy.check(item.id, emptyList(), 10, chosen))
+    }
+
+    @Test fun `a chosen slot that is reserved, taken or off the shelf is refused`() {
+        val item = ShelfCatalog.find("pen_cup")!!
+        val own = listOf(owned("rabbit", 3, 0))
+        for (bad in listOf(ShelfLayout.JAR, ShelfLayout.GACHA, ShelfLayout.CLOCK, ShelfLayout.MEMORY_JARS[0], SlotRef(3, 0), SlotRef(0, 5), SlotRef(-1, 0), SlotRef(2, 9))) {
+            assertEquals("$bad", PurchaseCheck.SlotUnavailable, ShelfEconomy.check(item.id, own, 100, bad))
+        }
+    }
+
+    @Test fun `choosing a slot does not skip the coin check`() {
+        val item = ShelfCatalog.find("cat_calico")!!
+        assertEquals(PurchaseCheck.NotEnoughCoins(item.cost), ShelfEconomy.check(item.id, emptyList(), 0, SlotRef(3, 1)))
+    }
+
+    @Test fun `free slots exclude reserved and occupied ones`() {
+        val taken = setOf(SlotRef(0, 1))
+        val free = ShelfLayout.freeSlots(taken, 5)
+        assertFalse(SlotRef(0, 1) in free)
+        assertTrue(free.none { ShelfLayout.isReserved(it) })
+        assertTrue(SlotRef(0, 2) in free)
+        assertEquals(free.size, free.toSet().size)
+    }
+
+    // ---- old saved positions ----
+    @Test fun `items on slots that are now reserved move to a free spot and the rest stay put`() {
+        // Under the old layout the jar and gacha stood on row 1's neighbours: these two collide with them.
+        val old = listOf(
+            OwnedItem("cat_calico", 1, 0, purchasedAt = 1),
+            OwnedItem("rabbit", 1, 1, purchasedAt = 2),
+            OwnedItem("pen_cup", 3, 1, purchasedAt = 3),
+        )
+        val resolved = ShelfLayout.resolve(old).associateBy { it.itemId }
+        assertEquals(SlotRef(3, 1), resolved.getValue("pen_cup").slotRef) // a valid choice is never moved
+        val slots = resolved.values.map { it.slotRef }
+        assertEquals(3, slots.toSet().size)
+        assertTrue(slots.none { ShelfLayout.isReserved(it) })
+        assertTrue(slots.all { ShelfLayout.isValid(it) })
+    }
+
+    @Test fun `resolving is stable and leaves a clean shelf alone`() {
+        val clean = listOf(OwnedItem("cat_calico", 0, 1, 1), OwnedItem("rabbit", 3, 0, 2))
+        assertEquals(clean, ShelfLayout.resolve(clean))
+        val clash = listOf(OwnedItem("cat_calico", 3, 0, 1), OwnedItem("rabbit", 3, 0, 2))
+        assertEquals(ShelfLayout.resolve(clash), ShelfLayout.resolve(clash))
+        assertEquals(SlotRef(3, 0), ShelfLayout.resolve(clash).first { it.itemId == "cat_calico" }.slotRef) // earlier purchase wins
+    }
+
+    @Test fun `a new purchase never lands on an item that was relocated`() {
+        val old = listOf(OwnedItem("cat_calico", 1, 0, 1)) // collides with the jar
+        val relocated = ShelfLayout.resolve(old).single().slotRef
+        val r = ShelfEconomy.check("pen_cup", old, 100)
+        assertTrue(r is PurchaseCheck.Ok && r.slot != relocated)
     }
 }

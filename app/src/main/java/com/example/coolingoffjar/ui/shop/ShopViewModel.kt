@@ -8,7 +8,9 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.coolingoffjar.CoolingOffJarApp
 import com.example.coolingoffjar.data.repo.PurchaseResult
 import com.example.coolingoffjar.data.repo.ShelfRepository
+import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
+import com.example.coolingoffjar.domain.SlotRef
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +25,7 @@ data class ShopState(
     /** Coins available to spend. */
     val balance: Int = 0,
     val ownedIds: Set<String> = emptySet(),
+    val owned: List<OwnedItem> = emptyList(),
     /** The most recent purchases, newest last: shown on the shelf strip above the shop. */
     val recentOwnedIds: List<String> = emptyList(),
 )
@@ -35,16 +38,17 @@ sealed interface ShopEvent {
 class ShopViewModel(private val shelfRepository: ShelfRepository) : ViewModel() {
 
     val state: StateFlow<ShopState> = combine(shelfRepository.balance, shelfRepository.owned) { balance, owned ->
-        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned.map { it.itemId })
+        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned, owned.map { it.itemId })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ShopState())
 
     private val _events = MutableSharedFlow<ShopEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ShopEvent> = _events.asSharedFlow()
 
-    fun purchase(itemId: String) {
+    /** Buy [itemId] and put it at [slot] (null = next free spot). */
+    fun purchase(itemId: String, slot: SlotRef? = null) {
         viewModelScope.launch {
             _events.emit(
-                when (val result = shelfRepository.purchase(itemId)) {
+                when (val result = shelfRepository.purchase(itemId, slot)) {
                     is PurchaseResult.Bought -> ShopEvent.Bought(itemId)
                     is PurchaseResult.Refused -> ShopEvent.Refused(result.reason)
                 },

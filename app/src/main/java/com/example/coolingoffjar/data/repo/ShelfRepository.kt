@@ -8,6 +8,7 @@ import com.example.coolingoffjar.data.db.toEntity
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
 import com.example.coolingoffjar.domain.ShelfEconomy
+import com.example.coolingoffjar.domain.SlotRef
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -36,10 +37,13 @@ class ShelfRepository(
         ShelfEconomy.balance(earned, owned)
     }.distinctUntilChanged()
 
-    /** Checks and buys in one transaction, so two quick taps can never buy twice or overspend. */
-    suspend fun purchase(itemId: String): PurchaseResult = db.withTransaction {
+    /**
+     * Checks and buys in one transaction, so two quick taps can never buy twice or overspend. [slot] is where the
+     * user chose to put it (null = the next free spot); a spot that is reserved or taken is refused.
+     */
+    suspend fun purchase(itemId: String, slot: SlotRef? = null): PurchaseResult = db.withTransaction {
         val owned = shelfDao.getOwned().map { it.toDomain() }
-        when (val check = ShelfEconomy.check(itemId, owned, jarDao.totalCoins())) {
+        when (val check = ShelfEconomy.check(itemId, owned, jarDao.totalCoins(), slot)) {
             is PurchaseCheck.Ok -> {
                 val item = OwnedItem(itemId, check.slot.tier, check.slot.slot, clock())
                 shelfDao.insert(item.toEntity())
