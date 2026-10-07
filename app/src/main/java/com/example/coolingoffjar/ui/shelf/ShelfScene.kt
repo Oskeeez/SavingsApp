@@ -398,7 +398,6 @@ private fun BoxScope.SceneImage(res: Int, unit: Dp, x: Float, y: Float, w: Float
         painterResource(res), null,
         Modifier.align(Alignment.TopStart).offset(unit * x, unit * y).size(unit * w, unit * h),
         contentScale = ContentScale.FillBounds,
-        filterQuality = FilterQuality.Medium,
     )
 }
 
