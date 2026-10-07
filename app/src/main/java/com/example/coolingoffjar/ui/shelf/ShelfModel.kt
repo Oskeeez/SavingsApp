@@ -1,12 +1,5 @@
 package com.example.coolingoffjar.ui.shelf
 
-import androidx.annotation.DrawableRes
-import com.example.coolingoffjar.R
-
-/** Shelf artwork. All colour variants share the same layout; only the one drawn here is used for now. */
-@DrawableRes
-const val ShelfArtwork: Int = R.drawable.shelf_light_brown
-
 /** Colour of the wooden floor along the bottom edge of the artwork, used to fill under the gesture bar. */
 const val ShelfFloorColor = 0xFFAE7242
 

@@ -18,6 +18,7 @@ import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.ShelfCatalog
 import com.example.coolingoffjar.domain.ShelfGeometry
 import com.example.coolingoffjar.domain.ShelfLayout
@@ -32,7 +33,7 @@ data class BannerItem(val artKey: String, val x: Float, val scale: Float = 1f)
  */
 @Composable
 fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
-    val art = ImageBitmap.imageResource(ShelfArtwork)
+    val art = ImageBitmap.imageResource(R.drawable.shelf_light_brown)
     val tiers = ShelfGeometry.MIN_TIERS
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val width = maxWidth

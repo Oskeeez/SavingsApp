@@ -151,7 +151,7 @@ private class Placement(val unit: Dp, val shelfWidth: Dp, val tiers: Int)
 /** The bookcase picture, drawn in slices so extra tiers can be repeated with no seams. */
 @Composable
 private fun ShelfBackdrop(tiers: Int, modifier: Modifier) {
-    val art = ImageBitmap.imageResource(ShelfArtwork)
+    val art = ImageBitmap.imageResource(R.drawable.shelf_light_brown)
     Canvas(modifier) {
         val unitPx = size.width / ShelfGeometry.ART_WIDTH
         val dstWidth = size.width.roundToInt()
