@@ -51,4 +51,14 @@ class CoolOffRulesTest {
         assertEquals(0, CoolOffRules.daysLeft(10 * day, now = 10 * day))
         assertEquals(0, CoolOffRules.daysLeft(10 * day, now = 20 * day))
     }
+
+    @Test fun `display order puts READY first then COOLING by soonest unlock`() {
+        val now = 10 * day
+        val coolingLate = Want(1, "c-late", 0, 30 * day, WantStatus.COOLING)
+        val coolingSoon = Want(2, "c-soon", 0, 12 * day, WantStatus.COOLING)
+        val readyNewer = Want(3, "r-newer", 0, 9 * day, WantStatus.COOLING)
+        val readyOlder = Want(4, "r-older", 0, 2 * day, WantStatus.COOLING)
+        val sorted = CoolOffRules.sortForDisplay(listOf(coolingLate, readyNewer, coolingSoon, readyOlder), now)
+        assertEquals(listOf(4L, 3L, 2L, 1L), sorted.map { it.id })
+    }
 }

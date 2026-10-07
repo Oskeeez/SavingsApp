@@ -20,4 +20,12 @@ object CoolOffRules {
     /** Whole days remaining, rounded up so "1 day left" shows until the very last moment. 0 once ready. */
     fun daysLeft(unlockAt: Long, now: Long): Int =
         if (now >= unlockAt) 0 else ((unlockAt - now + DAY_MS - 1) / DAY_MS).toInt()
+
+    /** Display order: READY first (waiting longest on top), then COOLING (soonest to finish on top). */
+    fun sortForDisplay(wants: List<Want>, now: Long): List<Want> =
+        wants.sortedWith(
+            compareBy<Want> { effectiveStatus(it, now) != WantStatus.READY }
+                .thenBy { it.unlockAt }
+                .thenBy { it.id },
+        )
 }
