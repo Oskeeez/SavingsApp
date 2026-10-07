@@ -26,6 +26,10 @@ interface WantDao {
     @Query("UPDATE wants SET status = :status, decidedAt = :decidedAt WHERE id = :id")
     suspend fun setDecision(id: Long, status: WantStatus, decidedAt: Long)
 
+    /** Debug only: pretend every open want's cooling-off just ended. */
+    @Query("UPDATE wants SET unlockAt = :unlockAt WHERE status IN ('COOLING', 'READY')")
+    suspend fun setAllOpenUnlockAt(unlockAt: Long)
+
     @Query("DELETE FROM wants WHERE id = :id")
     suspend fun delete(id: Long)
 }
@@ -44,6 +48,9 @@ interface JarDao {
 
     @Query("SELECT * FROM jars WHERE id = :id")
     suspend fun getById(id: Long): JarEntity?
+
+    @Query("SELECT * FROM jars WHERE id = :id")
+    fun observeById(id: Long): Flow<JarEntity?>
 
     @Insert
     suspend fun insert(jar: JarEntity): Long

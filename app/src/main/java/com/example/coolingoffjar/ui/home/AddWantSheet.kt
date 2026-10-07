@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import com.example.coolingoffjar.R
+import com.example.coolingoffjar.data.AppClock
 import com.example.coolingoffjar.data.repo.CoolingOffRepository
 import com.example.coolingoffjar.domain.CoolOffRules
 import com.example.coolingoffjar.ui.theme.JarTheme
@@ -58,7 +59,7 @@ fun AddWantSheet(
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     var name by rememberSaveable { mutableStateOf("") }
-    val readyOn = formatDate(CoolOffRules.unlockAt(System.currentTimeMillis(), coolOffDays))
+    val readyOn = formatDate(CoolOffRules.unlockAt(AppClock.now(), coolOffDays))
 
     fun confirm() {
         if (name.isBlank()) return

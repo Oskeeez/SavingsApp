@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -20,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.coolingoffjar.R
@@ -35,7 +37,7 @@ import com.example.coolingoffjar.ui.util.rememberAnimationsEnabled
  * With system animations off it simply fades.
  */
 @Composable
-fun WantItem(want: Want, now: Long, animateIn: Boolean, modifier: Modifier = Modifier) {
+fun WantItem(want: Want, now: Long, animateIn: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val palette = JarTheme.palette
     val status = CoolOffRules.effectiveStatus(want, now)
     val ready = status == WantStatus.READY
@@ -56,7 +58,14 @@ fun WantItem(want: Want, now: Long, animateIn: Boolean, modifier: Modifier = Mod
             border = if (ready) BorderStroke(1.dp, palette.gold.copy(alpha = 0.75f)) else null,
             shadowElevation = 1.dp,
         ) {
-            Column(Modifier.heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 14.dp)) {
+            val tapLabel = stringResource(R.string.item_decide_action)
+            Column(
+                Modifier
+                    .then(if (ready) Modifier.clickable(onClickLabel = tapLabel, role = Role.Button, onClick = onClick) else Modifier)
+                    .fillMaxWidth()
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = 20.dp, vertical = 14.dp),
+            ) {
                 Text(
                     want.name,
                     style = MaterialTheme.typography.titleMedium,

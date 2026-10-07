@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.coolingoffjar.CoolingOffJarApp
 import com.example.coolingoffjar.data.repo.CoolingOffRepository
+import com.example.coolingoffjar.data.repo.DecisionResult
 import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.Settings
 import com.example.coolingoffjar.domain.Want
@@ -24,10 +25,13 @@ data class HomeState(
     val jar: Jar = Jar(),
     val wants: List<Want> = emptyList(),
     val settings: Settings = Settings(),
+    /** A just-completed jar whose "Freebie unlocked" card is waiting for Use freebie / Later. */
+    val celebration: Jar? = null,
 )
 
 sealed interface HomeEvent {
     data class WantAdded(val want: Want) : HomeEvent
+    data object BoughtNoted : HomeEvent
 }
 
 class HomeViewModel(private val repository: CoolingOffRepository) : ViewModel() {
@@ -36,7 +40,8 @@ class HomeViewModel(private val repository: CoolingOffRepository) : ViewModel() 
         repository.currentJar,
         repository.openWants,
         repository.settings,
-    ) { jar, wants, settings -> HomeState(true, jar, wants, settings) }
+        repository.pendingCelebration,
+    ) { jar, wants, settings, celebration -> HomeState(true, jar, wants, settings, celebration) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 8)
@@ -46,6 +51,26 @@ class HomeViewModel(private val repository: CoolingOffRepository) : ViewModel() 
         viewModelScope.launch {
             repository.addWant(name)?.let { _events.emit(HomeEvent.WantAdded(it)) }
         }
+    }
+
+    /** "Not buying": the coin(s) drop in via the jar's own animation when the new state arrives. */
+    fun notBuying(wantId: Long) {
+        viewModelScope.launch { repository.decideNotBuying(wantId) }
+    }
+
+    /** "Still want it": no coin, neutral acknowledgement. */
+    fun stillWant(wantId: Long) {
+        viewModelScope.launch {
+            if (repository.decideStillWant(wantId) is DecisionResult.Done) _events.emit(HomeEvent.BoughtNoted)
+        }
+    }
+
+    fun useFreebie(jarId: Long) {
+        viewModelScope.launch { repository.useFreebie(jarId) }
+    }
+
+    fun dismissCelebration() {
+        viewModelScope.launch { repository.dismissCelebration() }
     }
 
     companion object {

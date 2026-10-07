@@ -128,6 +128,47 @@ fun DrawScope.drawCoin(paints: JarPaints, center: Offset, radius: Float, rotatio
     }
 }
 
+/**
+ * A cluster of coins in flight: coins [from] until [to] fall one after another ([staggerMs] apart,
+ * each taking [fallMs]) into their resting slots. [clockMs] is the animation time so far.
+ */
+class CoinDrop(val from: Int, val to: Int, val clockMs: Float, val staggerMs: Float, val fallMs: Float)
+
+/** Simple fall-and-settle: accelerate straight down from under the lid into the coin's slot. No physics. */
+fun DrawScope.drawFallingCoins(paints: JarPaints, drop: CoinDrop) {
+    val slots = CoinLayout.slots
+    val radius = CoinLayout.COIN_DIAMETER / 2
+    for (i in drop.from until drop.to.coerceAtMost(slots.size)) {
+        val t = (drop.clockMs - (i - drop.from) * drop.staggerMs) / drop.fallMs
+        if (t <= 0f) continue // not released yet
+        val progress = t.coerceIn(0f, 1f)
+        val fall = progress * progress // accelerating
+        val slot = slots[i]
+        val startX = 0.5f + (slot.x - 0.5f) * 0.35f
+        val center = Offset(
+            x = startX + (slot.x - startX) * fall,
+            y = 0.06f + (slot.y - 0.06f) * fall,
+        )
+        drawCoin(paints, center, radius, slot.rotationDeg + 120f * (1f - fall), 1f + (slot.squashY - 1f) * fall)
+    }
+}
+
+/** Soft golden glow behind the jar (celebration). [strength] 0..1. */
+fun DrawScope.drawGlow(paints: JarPaints, strength: Float) {
+    if (strength <= 0.01f) return
+    val gold = paints.palette.gold
+    drawCircle(
+        Brush.radialGradient(
+            0f to gold.copy(alpha = (if (paints.palette.isDark) 0.45f else 0.60f) * strength),
+            1f to gold.copy(alpha = 0f),
+            center = Offset(0.5f, 0.72f),
+            radius = 0.95f,
+        ),
+        radius = 0.95f,
+        center = Offset(0.5f, 0.72f),
+    )
+}
+
 fun DrawScope.drawRestingCoins(paints: JarPaints, count: Int) {
     val slots = CoinLayout.slots
     val radius = CoinLayout.COIN_DIAMETER / 2
@@ -179,10 +220,14 @@ fun DrawScope.drawLid(paints: JarPaints) {
 }
 
 /** Convenience: draw the whole jar at [restingCoins] coins. Callers apply the width-unit scale first. */
-fun DrawScope.drawJar(paints: JarPaints, body: Path, restingCoins: Int) {
+fun DrawScope.drawJar(paints: JarPaints, body: Path, restingCoins: Int, drop: CoinDrop? = null, glow: Float = 0f) {
+    drawGlow(paints, glow)
     drawContactShadow(paints)
     drawGlassBack(paints, body)
-    clipPath(body) { drawRestingCoins(paints, restingCoins) }
+    clipPath(body) {
+        drawRestingCoins(paints, restingCoins)
+        if (drop != null) drawFallingCoins(paints, drop)
+    }
     drawGlassFront(paints, body)
     drawLid(paints)
 }

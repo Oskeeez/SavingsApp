@@ -11,13 +11,75 @@
     <string name="add_ready_on">Ready on %1$s</string>
     <string name="add_confirm">Start cooling off</string>
     <string name="add_snackbar">Added. Ready on %1$s</string>
-    <string name="item_ready">Cooling-off finished</string>
+    <string name="item_ready">Cooling-off finished. Tap to decide</string>
+    <string name="item_decide_action">Decide</string>
     <plurals name="item_days_left">
         <item quantity="one">%d day left</item>
         <item quantity="other">%d days left</item>
     </plurals>
     <string name="shelf_title">Shelf</string>
-    <string name="shelf_placeholder">Completed jars will appear here.</string>
     <string name="settings_title">Settings</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Decision sheet -->
+    <string name="decision_eyebrow">Cooling-off finished. Still want it?</string>
+    <string name="decision_body">You added this on %1$s. Take your time: there is no rush and no wrong answer.</string>
+    <string name="decision_not_buying">Not buying</string>
+    <string name="decision_not_buying_hint">Add a coin to the jar</string>
+    <string name="decision_still_want">Still want it</string>
+    <string name="decision_bought_noted">Noted. Enjoy it, no judgement.</string>
+
+    <!-- Freebie -->
+    <string name="freebie_title">Freebie unlocked</string>
+    <string name="freebie_body">You filled the jar. Spend a treat on anything you like, guilt-free.</string>
+    <string name="freebie_use">Use freebie</string>
+    <string name="freebie_later">Later</string>
+
+    <!-- Shelf -->
+    <string name="shelf_empty">No finished jars yet. Fill your first one and it will be kept here.</string>
+    <string name="shelf_completed_on">Completed %1$s</string>
+    <string name="shelf_jar_description">Completed jar, finished %1$s</string>
+    <string name="shelf_badge_unused">Freebie ready</string>
+    <string name="shelf_freebie_used">Freebie used</string>
+    <string name="shelf_freebie_title">Use this freebie?</string>
+    <string name="shelf_freebie_body">It is yours to spend on anything you choose. Nothing is recorded except that it has been used.</string>
+    <string name="shelf_freebie_not_yet">Not yet</string>
+
+    <!-- Settings -->
     <string name="settings_privacy">Everything stays on your phone.</string>
+    <string name="settings_cool_off_title">Cooling-off period</string>
+    <string name="settings_cool_off_desc">How long a new item waits before you decide. Only applies to things you add from now on.</string>
+    <string name="settings_cool_off_less">Decrease cooling-off days</string>
+    <string name="settings_cool_off_more">Increase cooling-off days</string>
+    <string name="settings_jar_title">Coins per jar</string>
+    <string name="settings_jar_desc">How many not-buys fill a jar and unlock a freebie. Applies to your current jar straight away.</string>
+    <string name="settings_jar_less">Decrease coins per jar</string>
+    <string name="settings_jar_more">Increase coins per jar</string>
+    <plurals name="settings_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="settings_coins">
+        <item quantity="one">%d coin</item>
+        <item quantity="other">%d coins</item>
+    </plurals>
+
+    <!-- Developer section (debug builds only) -->
+    <string name="dev_title">Developer tools</string>
+    <string name="dev_hint">Only in debug builds. Time travel and shortcuts for trying every flow quickly.</string>
+    <string name="dev_clock">App date</string>
+    <string name="dev_clock_real">Today (real clock): %1$s</string>
+    <string name="dev_clock_simulated">Simulated date: %1$s</string>
+    <string name="dev_pick_date">Pick date…</string>
+    <string name="dev_set_date">Set</string>
+    <string name="dev_reset_clock">Real time</string>
+    <string name="dev_data">Data</string>
+    <string name="dev_add_samples">Add sample items</string>
+    <string name="dev_make_ready">Make all items ready</string>
+    <string name="dev_add_coin">Add a coin</string>
+    <string name="dev_complete_jar">Complete jar now</string>
+    <string name="dev_reset_all">Reset all data</string>
+    <string name="dev_reset_title">Reset everything?</string>
+    <string name="dev_reset_body">Deletes every item and every jar on this device. Settings are kept.</string>
+    <string name="dev_reset_confirm">Reset</string>
 </resources>

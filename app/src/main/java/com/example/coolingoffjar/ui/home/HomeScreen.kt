@@ -28,16 +28,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coolingoffjar.R
+import com.example.coolingoffjar.data.AppClock
 import com.example.coolingoffjar.domain.CoolOffRules
+import com.example.coolingoffjar.domain.WantStatus
 import com.example.coolingoffjar.ui.jar.JarView
 import com.example.coolingoffjar.ui.theme.JarTheme
 import com.example.coolingoffjar.ui.util.formatDate
@@ -51,23 +56,34 @@ fun HomeScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHost = remember { SnackbarHostState() }
-    var showAddSheet by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    var showAddSheet by rememberSaveable { mutableStateOf(false) }
+    var decisionWantId by rememberSaveable { mutableLongStateOf(-1L) }
     var justAddedId by remember { mutableLongStateOf(-1L) }
 
-    val now = rememberNowMillis(nextUnlockAt = state.wants.map { it.unlockAt }.filter { it > System.currentTimeMillis() }.minOrNull())
+    val now = rememberNowMillis(nextUnlockAt = state.wants.map { it.unlockAt }.filter { it > AppClock.now() }.minOrNull())
     val items = remember(state.wants, now) { CoolOffRules.sortForDisplay(state.wants, now) }
 
     val addedMessage = stringResource(R.string.add_snackbar)
+    val boughtMessage = stringResource(R.string.decision_bought_noted)
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
+            snackbarHost.currentSnackbarData?.dismiss()
             when (event) {
                 is HomeEvent.WantAdded -> {
                     justAddedId = event.want.id
-                    snackbarHost.currentSnackbarData?.dismiss()
                     snackbarHost.showSnackbar(String.format(addedMessage, formatDate(event.want.unlockAt)))
                 }
+                HomeEvent.BoughtNoted -> snackbarHost.showSnackbar(boughtMessage)
             }
         }
+    }
+
+    // While the freebie card is up, show the jar that was just completed (full and glowing).
+    val celebration = state.celebration
+    val shownJar = celebration ?: state.jar
+    LaunchedEffect(celebration?.id) {
+        if (celebration != null) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
     }
 
     Box(
@@ -81,16 +97,17 @@ fun HomeScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 32.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 56.dp, bottom = if (celebration != null) 280.dp else 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item(key = "jar") {
                     Box(Modifier.fillMaxWidth().height(jarAreaHeight), contentAlignment = Alignment.Center) {
                         if (state.isLoaded) {
                             JarView(
-                                filledCount = state.jar.filledCount,
+                                filledCount = shownJar.filledCount,
                                 notBuysPerJar = state.settings.notBuysPerJar,
                                 modifier = Modifier.fillMaxHeight(),
+                                glow = if (celebration != null) 1f else 0f,
                             )
                         }
                     }
@@ -121,7 +138,12 @@ fun HomeScreen(
                     }
                 }
                 items(items, key = { it.id }) { want ->
-                    WantItem(want = want, now = now, animateIn = want.id == justAddedId)
+                    WantItem(
+                        want = want,
+                        now = now,
+                        animateIn = want.id == justAddedId,
+                        onClick = { decisionWantId = want.id },
+                    )
                 }
             }
 
@@ -135,6 +157,14 @@ fun HomeScreen(
             }
         }
 
+        if (celebration != null) {
+            FreebieCard(
+                onUseFreebie = { viewModel.useFreebie(celebration.id) },
+                onLater = viewModel::dismissCelebration,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 16.dp),
+            )
+        }
+
         SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter))
     }
 
@@ -143,6 +173,17 @@ fun HomeScreen(
             coolOffDays = state.settings.coolOffDays,
             onDismiss = { showAddSheet = false },
             onConfirm = viewModel::addWant,
+        )
+    }
+
+    // Decision sheet: only for a want that is still open and really READY at this moment.
+    val deciding = state.wants.firstOrNull { it.id == decisionWantId }
+    if (deciding != null && CoolOffRules.effectiveStatus(deciding, now) == WantStatus.READY) {
+        DecisionSheet(
+            want = deciding,
+            onNotBuying = { viewModel.notBuying(deciding.id) },
+            onStillWant = { viewModel.stillWant(deciding.id) },
+            onDismiss = { decisionWantId = -1L },
         )
     }
 }
