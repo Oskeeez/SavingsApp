@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +59,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.PurchaseCheck
 import com.example.coolingoffjar.domain.ShelfCatalog
+import com.example.coolingoffjar.domain.ShelfCategory
+import com.example.coolingoffjar.domain.ShelfSurface
 import com.example.coolingoffjar.ui.components.CoinChip
 import com.example.coolingoffjar.ui.components.CoinIcon
 import com.example.coolingoffjar.ui.components.PaperNote
@@ -118,16 +121,30 @@ fun ShopDetailScreen(
             // Neighbours, a little cropped, like the reference.
             Image(painterResource(artRes("books_standing")), null, Modifier.align(Alignment.TopStart).offset(x = (-26).dp, y = boardY - 110.dp).size(width = 100.dp, height = 110.dp), contentScale = ContentScale.Fit)
             Image(painterResource(artRes("wooden_house")), null, Modifier.align(Alignment.TopEnd).offset(x = 22.dp, y = boardY - 84.dp).size(width = 80.dp, height = 84.dp), contentScale = ContentScale.Fit)
-            // The item itself.
-            val itemHeight = (screenH * 0.34f).coerceAtMost(300.dp)
-            val itemWidth = itemHeight * item.aspect
-            val widthLimit = this@BoxWithConstraints.maxWidth * 0.72f
-            val (w, h) = if (itemWidth > widthLimit) widthLimit to widthLimit / item.aspect else itemWidth to itemHeight
-            Image(
-                painterResource(artRes(item.artKey)), contentDescription = item.name,
-                modifier = Modifier.align(Alignment.TopCenter).offset(y = boardY - h + 6.dp).size(w, h),
-                contentScale = ContentScale.Fit,
-            )
+            // The item itself (a wall, floor or shelf is shown as a swatch card instead).
+            if (item.surface == ShelfSurface.DECOR) {
+                val cardW = (this@BoxWithConstraints.maxWidth * 0.5f).coerceAtMost(220.dp)
+                val cardH = if (item.category == ShelfCategory.SHELVES) cardW * 1.2f else cardW * 0.8f
+                Image(
+                    painterResource(artRes(item.artKey)), contentDescription = item.name,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .offset(y = boardY - cardH + 6.dp)
+                        .size(cardW, cardH)
+                        .clip(RoundedCornerShape(20.dp)),
+                    contentScale = if (item.category == ShelfCategory.SHELVES) ContentScale.Fit else ContentScale.Crop,
+                )
+            } else {
+                val itemHeight = (screenH * 0.34f).coerceAtMost(300.dp)
+                val itemWidth = itemHeight * item.aspect
+                val widthLimit = this@BoxWithConstraints.maxWidth * 0.72f
+                val (w, h) = if (itemWidth > widthLimit) widthLimit to widthLimit / item.aspect else itemWidth to itemHeight
+                Image(
+                    painterResource(artRes(item.artKey)), contentDescription = item.name,
+                    modifier = Modifier.align(Alignment.TopCenter).offset(y = boardY - h + 6.dp).size(w, h),
+                    contentScale = ContentScale.Fit,
+                )
+            }
         }
 
         // Top controls.
@@ -180,7 +197,23 @@ fun ShopDetailScreen(
                     Text(item.cost.toString(), style = MaterialTheme.typography.headlineSmall, color = palette.text)
                 }
 
-                if (owned) {
+                val decor = item.surface == ShelfSurface.DECOR
+                val inUse = decor && state.look.let { it.wall == item.id || it.floor == item.id || it.shelf == item.id }
+                if (owned && decor) {
+                    Button(
+                        onClick = { viewModel.use(item.id) },
+                        enabled = !inUse,
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 56.dp),
+                        shape = RoundedCornerShape(50),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = palette.sageDeep,
+                            contentColor = palette.onSage,
+                            disabledContainerColor = palette.beige,
+                            disabledContentColor = palette.textSecondary,
+                        ),
+                    ) { Text(stringResource(if (inUse) R.string.shop_in_use else R.string.shop_use_this), style = MaterialTheme.typography.titleMedium) }
+                } else if (owned) {
                     Button(
                         onClick = {},
                         enabled = false,
@@ -195,7 +228,7 @@ fun ShopDetailScreen(
                     ) { Text(stringResource(R.string.shop_view_shelf), color = palette.text) }
                 } else {
                     Button(
-                        onClick = { placing = true },
+                        onClick = { if (decor) viewModel.purchase(item.id) else placing = true },
                         enabled = affordable,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 56.dp),
                         shape = RoundedCornerShape(50),
@@ -226,10 +259,16 @@ fun ShopDetailScreen(
                     color = palette.surface.copy(alpha = palette.surfaceAlpha),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    ShelfBanner(
-                        listOf(BannerItem("books_standing", 0.14f), BannerItem(item.artKey, 0.50f), BannerItem("cat_calico", 0.84f)),
-                        Modifier.padding(6.dp),
-                    )
+                    val previewLook = when (item.category) {
+                        ShelfCategory.WALLS -> state.look.copy(wall = item.id)
+                        ShelfCategory.SHELVES -> state.look.copy(shelf = item.id)
+                        ShelfCategory.FLOORS -> state.look.copy(floor = item.id)
+                        else -> state.look
+                    }
+                    val previewItems =
+                        if (item.surface == ShelfSurface.DECOR) listOf(BannerItem("books_standing", 0.20f), BannerItem("cat_calico", 0.55f), BannerItem("bonsai", 0.84f))
+                        else listOf(BannerItem("books_standing", 0.14f), BannerItem(item.artKey, 0.50f), BannerItem("cat_calico", 0.84f))
+                    ShelfBanner(previewItems, previewLook, Modifier.padding(6.dp))
                 }
                 PaperNote(stringResource(R.string.shop_note), Modifier.padding(top = 16.dp), tilt = -1.5f)
             }
@@ -243,9 +282,13 @@ fun ShopDetailScreen(
         PlacementDialog(
             item = item,
             owned = state.owned,
-            onConfirm = { slot ->
+            look = state.look,
+            jarFilled = 0,
+            notBuysPerJar = 5,
+            memoryJars = emptyList(),
+            onConfirm = { slot, point ->
                 placing = false
-                viewModel.purchase(item.id, slot)
+                viewModel.purchase(item.id, slot, point)
             },
             onDismiss = { placing = false },
         )

@@ -6,8 +6,9 @@ import kotlin.math.roundToInt
  * The jar artwork has six pictures: empty, 1, 2, 3, 4 and 5 coins. This picks the one to show for a jar that holds
  * [filled] of [perJar] coins, whatever [perJar] is:
  *   - nothing in it is always the empty picture;
- *   - the full picture is shown exactly when the jar is full (k >= N), never before;
- *   - in between it moves up through the 1-4 coin pictures in proportion to F = k / N.
+ *   - for a jar of up to five coins the full picture is shown exactly when the jar is full, and in between it moves
+ *     up through the 1-4 coin pictures in proportion to F = k / N;
+ *   - for a bigger jar the picture shows the coins one by one up to five and keeps the 5-coin picture from there on.
  */
 object JarArt {
     const val STATES = 6
@@ -16,6 +17,8 @@ object JarArt {
 
     fun stateFor(filled: Int, perJar: Int): Int = when {
         filled <= 0 -> EMPTY
+        // A jar that holds more than five coins shows one coin per coin up to five, then stays on the 5-coin picture.
+        perJar > FULL -> minOf(filled, FULL)
         filled >= perJar -> FULL
         else -> ((filled.toFloat() / perJar) * FULL).roundToInt().coerceIn(1, FULL - 1)
     }

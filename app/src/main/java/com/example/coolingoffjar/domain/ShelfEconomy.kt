@@ -1,13 +1,13 @@
 package com.example.coolingoffjar.domain
 
 sealed interface PurchaseCheck {
-    /** Can buy; it will stand at [slot]. */
-    data class Ok(val slot: SlotRef) : PurchaseCheck
+    /** Can buy; a bookcase item will stand at [slot], a wall item hangs at [point] (neither matters for decor). */
+    data class Ok(val slot: SlotRef, val point: ScenePoint? = null) : PurchaseCheck
     data object UnknownItem : PurchaseCheck
     data object AlreadyOwned : PurchaseCheck
     data class NotEnoughCoins(val shortBy: Int) : PurchaseCheck
 
-    /** The spot asked for is reserved, already taken, or not on the shelf. */
+    /** The spot asked for is already taken or not on the shelf, or the bookcase is full. */
     data object SlotUnavailable : PurchaseCheck
 }
 
@@ -23,17 +23,33 @@ object ShelfEconomy {
 
     fun balance(coinsEarned: Int, owned: List<OwnedItem>): Int = coinsEarned - coinsSpent(owned)
 
-    /** [wantedSlot] is where the user chose to put it; null means "the next free spot". */
-    fun check(itemId: String, owned: List<OwnedItem>, coinsEarned: Int, wantedSlot: SlotRef? = null): PurchaseCheck {
+    /** [wantedSlot] / [wantedPoint] is where the user chose to put it; null means "the next free spot". */
+    fun check(
+        itemId: String,
+        owned: List<OwnedItem>,
+        coinsEarned: Int,
+        wantedSlot: SlotRef? = null,
+        wantedPoint: ScenePoint? = null,
+    ): PurchaseCheck {
         val item = ShelfCatalog.find(itemId) ?: return PurchaseCheck.UnknownItem
+        if (item.category == ShelfCategory.CORE) return PurchaseCheck.UnknownItem
         if (owned.any { it.itemId == itemId }) return PurchaseCheck.AlreadyOwned
         val balance = balance(coinsEarned, owned)
         if (balance < item.cost) return PurchaseCheck.NotEnoughCoins(item.cost - balance)
-        val taken = ShelfLayout.resolve(owned).map { it.slotRef }.toSet()
-        if (wantedSlot == null) {
-            val next = ShelfLayout.nextFreeSlot(taken, item.surface) ?: return PurchaseCheck.SlotUnavailable
-            return PurchaseCheck.Ok(next)
+        return when (item.surface) {
+            ShelfSurface.DECOR -> PurchaseCheck.Ok(SlotRef(0, 0))
+            ShelfSurface.WALL -> PurchaseCheck.Ok(SlotRef(0, 0), wantedPoint?.let { ShelfLayout.clampWall(item, it) })
+            ShelfSurface.SHELF -> {
+                val taken = ShelfLayout.taken(ShelfLayout.resolve(owned))
+                if (wantedSlot == null) {
+                    val next = ShelfLayout.nextFreeSlot(taken) ?: return PurchaseCheck.SlotUnavailable
+                    PurchaseCheck.Ok(next)
+                } else if (ShelfLayout.isValid(wantedSlot) && wantedSlot !in taken) {
+                    PurchaseCheck.Ok(wantedSlot)
+                } else {
+                    PurchaseCheck.SlotUnavailable
+                }
+            }
         }
-        return if (ShelfLayout.isUsable(wantedSlot, item.surface, taken)) PurchaseCheck.Ok(wantedSlot) else PurchaseCheck.SlotUnavailable
     }
 }

@@ -1,140 +1,150 @@
 package com.example.coolingoffjar.domain
 
+import kotlin.math.max
 import kotlin.math.min
 
-/**
- * A place for something to stand. On the shelf [tier] is 0 for the top of the unit, 1.. for the compartments below.
- * On the wall above the shelf the tier is negative: -1 is the upper row of notes, -2 the lower row.
- */
-data class SlotRef(val tier: Int, val slot: Int) {
-    val isWall: Boolean get() = tier < 0
-}
+/** A place on the bookcase: [tier] 0 is the top of the unit, 4 the bottom shelf; [slot] 0..3 runs left to right. */
+data class SlotRef(val tier: Int, val slot: Int)
 
-/** An item the user has bought, and where it stands. */
-data class OwnedItem(val itemId: String, val tier: Int, val slot: Int, val purchasedAt: Long) {
+/** A point in the scene, as fractions of its width and height (so it survives any screen size). */
+data class ScenePoint(val x: Float, val y: Float)
+
+/**
+ * Something the user has: bought items, plus the jar, clock, gacha machine and memory jars that are always there.
+ * Things on the bookcase use [tier]/[slot]; things on the wall use the free position [x]/[y]; walls, floors and
+ * shelves use neither.
+ */
+data class OwnedItem(
+    val itemId: String,
+    val tier: Int,
+    val slot: Int,
+    val purchasedAt: Long,
+    val x: Float? = null,
+    val y: Float? = null,
+) {
     val slotRef: SlotRef get() = SlotRef(tier, slot)
 }
 
 /**
- * Where things can stand. Each shelf row has four slots along its board; the wall has two rows of three note spots.
- * A handful of slots are reserved forever: the desk clock (Settings) on the top row, the jar and the gacha machine
- * (Shop) on the second row, and two for completed-jar memories. Everything else is the user's to arrange.
+ * Where things can stand. The bookcase has five levels with four slots each. Everything that stands on it can be
+ * dragged to any free slot, the jar and the gacha machine included. Notes are pinned to the wall wherever the user
+ * likes: they have no slots.
  */
 object ShelfLayout {
-    val CLOCK = SlotRef(0, 0)
-    val JAR = SlotRef(1, 1)
-    val GACHA = SlotRef(1, 2)
-    val MEMORY_JARS = listOf(SlotRef(2, 3), SlotRef(3, 3))
+    /** Where the always-there objects start out. */
+    val DEFAULT_SLOTS: Map<String, SlotRef> = mapOf(
+        "clock" to SlotRef(0, 0),
+        "jar" to SlotRef(1, 1),
+        "gacha" to SlotRef(1, 2),
+        "memory_1" to SlotRef(2, 3),
+        "memory_2" to SlotRef(3, 3),
+    )
 
-    private val reserved: Set<SlotRef> = setOf(CLOCK, JAR, GACHA) + MEMORY_JARS
+    /** Where successive wall items first appear (scene fractions), until the user moves them. */
+    private val WALL_DEFAULTS = listOf(
+        ScenePoint(0.80f, 0.15f), ScenePoint(0.58f, 0.22f), ScenePoint(0.22f, 0.25f),
+        ScenePoint(0.90f, 0.27f), ScenePoint(0.40f, 0.08f), ScenePoint(0.10f, 0.27f),
+    )
 
-    val WALL_TIERS = listOf(-1, -2)
-
-    /** Horizontal centres of a row's slots, as fractions of the shelf width. */
+    /** Fractions of the scene width at which a level's slots are centred. */
     fun slotXs(tier: Int): List<Float> =
-        if (tier < 0) listOf(0.22f, 0.50f, 0.78f) else listOf(0.212f, 0.405f, 0.597f, 0.789f)
+        (0 until ShelfGeometry.SLOTS_PER_LEVEL).map { ShelfGeometry.slotCenterX(tier, it) / ShelfGeometry.SCENE_WIDTH }
 
-    /** 0 for the upper wall row, 1 for the lower. */
-    fun wallRow(tier: Int): Int = -tier - 1
+    fun isValid(slot: SlotRef): Boolean =
+        slot.tier in 0 until ShelfGeometry.LEVELS && slot.slot in 0 until ShelfGeometry.SLOTS_PER_LEVEL
 
-    fun isReserved(slot: SlotRef): Boolean = slot in reserved
+    private fun allSlots(): List<SlotRef> =
+        (0 until ShelfGeometry.LEVELS).flatMap { t -> (0 until ShelfGeometry.SLOTS_PER_LEVEL).map { SlotRef(t, it) } }
 
-    private fun isValidFor(slot: SlotRef, surface: ShelfSurface): Boolean = when (surface) {
-        ShelfSurface.SHELF -> slot.tier >= 0 && slot.slot in slotXs(slot.tier).indices
-        ShelfSurface.WALL -> slot.tier in WALL_TIERS && slot.slot in slotXs(slot.tier).indices
-    }
+    /** First free slot, scanning top to bottom, left to right; null when the bookcase is full. */
+    fun nextFreeSlot(occupied: Set<SlotRef>): SlotRef? = allSlots().firstOrNull { it !in occupied }
 
-    /** True for any real slot, on the shelf or the wall. */
-    fun isValid(slot: SlotRef): Boolean = isValidFor(slot, ShelfSurface.SHELF) || isValidFor(slot, ShelfSurface.WALL)
-
-    /** True if [slot] is a real, unreserved spot on [surface] that is not in [taken]. */
-    fun isUsable(slot: SlotRef, surface: ShelfSurface, taken: Set<SlotRef>): Boolean =
-        isValidFor(slot, surface) && slot !in reserved && slot !in taken
-
-    /** First free, unreserved shelf slot, scanning top to bottom, left to right. Never runs out: rows are added. */
-    fun nextFreeSlot(occupied: Set<SlotRef>): SlotRef {
-        var tier = 0
-        while (true) {
-            for (slot in slotXs(tier).indices) {
-                val ref = SlotRef(tier, slot)
-                if (ref !in reserved && ref !in occupied) return ref
-            }
-            tier++
-        }
-    }
-
-    /** First free wall spot (upper row first), or null if the wall is full. */
-    fun nextFreeWallSlot(occupied: Set<SlotRef>): SlotRef? =
-        WALL_TIERS.flatMap { tier -> slotXs(tier).indices.map { SlotRef(tier, it) } }.firstOrNull { it !in occupied }
-
-    fun nextFreeSlot(occupied: Set<SlotRef>, surface: ShelfSurface): SlotRef? = when (surface) {
-        ShelfSurface.SHELF -> nextFreeSlot(occupied)
-        ShelfSurface.WALL -> nextFreeWallSlot(occupied)
-    }
-
-    /** Every spot the user could still use on [surface] (for the shelf: across the first [tiers] rows). */
-    fun freeSlots(occupied: Set<SlotRef>, tiers: Int, surface: ShelfSurface = ShelfSurface.SHELF): List<SlotRef> {
-        val rows = if (surface == ShelfSurface.WALL) WALL_TIERS else (0 until tiers).toList()
-        return rows.flatMap { tier -> slotXs(tier).indices.map { SlotRef(tier, it) } }
-            .filter { isUsable(it, surface, occupied) }
-    }
+    /** Every slot not in [occupied]. */
+    fun freeSlots(occupied: Set<SlotRef>): List<SlotRef> = allSlots().filter { it !in occupied }
 
     private fun surfaceOf(itemId: String): ShelfSurface = ShelfCatalog.find(itemId)?.surface ?: ShelfSurface.SHELF
 
+    private fun isCore(itemId: String) = ShelfCatalog.find(itemId)?.category == ShelfCategory.CORE
+
+    /** The size of a wall item (scene px). */
+    fun wallSize(item: CatalogItem): Pair<Float, Float> {
+        val h = min(MAX_NOTE_HEIGHT, MAX_NOTE_WIDTH / item.aspect)
+        return h * item.aspect to h
+    }
+
+    /** Keeps a note wholly on the wall (and wholly inside the picture). */
+    fun clampWall(item: CatalogItem, p: ScenePoint): ScenePoint {
+        val (w, h) = wallSize(item)
+        val minX = w / 2f / ShelfGeometry.SCENE_WIDTH
+        val minY = h / 2f / ShelfGeometry.SCENE_HEIGHT
+        val maxY = (ShelfGeometry.WALL_HEIGHT - 6f - h / 2f) / ShelfGeometry.SCENE_HEIGHT
+        return ScenePoint(p.x.coerceIn(minX, max(minX, 1f - minX)), p.y.coerceIn(minY, max(minY, maxY)))
+    }
+
     /**
-     * Where each owned item actually stands. A saved position is kept whenever it is a real, unreserved, unshared spot
-     * on the item's own surface (earlier purchases win a clash). Anything else, such as an item bought under an older
-     * layout whose spot is now taken by the jar, is moved to the next free spot, so nothing is hidden or overlapping.
+     * Where each item really stands. Things on the bookcase keep a saved slot when it is real and not shared (the
+     * always-there objects and earlier purchases win a clash); anything else moves to the next free slot, so nothing is
+     * hidden or overlapping. Wall items without a position get a default one. Walls, floors and shelves are not
+     * placed, so they are left out.
      */
     fun resolve(owned: List<OwnedItem>): List<OwnedItem> {
-        val ordered = owned.sortedWith(compareBy({ it.purchasedAt }, { it.itemId }))
+        val ordered = owned
+            .filter { surfaceOf(it.itemId) != ShelfSurface.DECOR }
+            .sortedWith(compareBy({ if (isCore(it.itemId)) 0 else 1 }, { it.purchasedAt }, { it.itemId }))
         val kept = HashSet<SlotRef>()
-        val ok = ordered.map { item ->
-            val slot = item.slotRef
-            isValidFor(slot, surfaceOf(item.itemId)) && slot !in reserved && kept.add(slot)
+        val shelfOk = ordered.associate { item ->
+            item.itemId to (surfaceOf(item.itemId) == ShelfSurface.SHELF && isValid(item.slotRef) && kept.add(item.slotRef))
         }
         val taken = HashSet(kept)
-        return ordered.mapIndexed { i, item ->
-            if (ok[i]) {
-                item
-            } else {
-                val next = nextFreeSlot(taken, surfaceOf(item.itemId))
-                if (next == null) item else { taken += next; item.copy(tier = next.tier, slot = next.slot) }
+        var wallIndex = 0
+        return ordered.map { item ->
+            val entry = ShelfCatalog.find(item.itemId)
+            when {
+                entry == null -> item
+                entry.surface == ShelfSurface.WALL -> {
+                    val base = if (item.x != null && item.y != null) ScenePoint(item.x, item.y)
+                    else WALL_DEFAULTS[wallIndex % WALL_DEFAULTS.size]
+                    wallIndex++
+                    val p = clampWall(entry, base)
+                    item.copy(x = p.x, y = p.y)
+                }
+                shelfOk.getValue(item.itemId) -> item
+                else -> {
+                    val next = nextFreeSlot(taken)
+                    if (next == null) item else { taken += next; item.copy(tier = next.tier, slot = next.slot) }
+                }
             }
         }
     }
 
-    /** Can [itemId] be moved to [target]? It must stay on its own surface, on a real, unreserved, empty spot. */
+    /** Can [itemId] stand in [target]? It must be a bookcase item and the slot must be real and empty. */
     fun canMove(owned: List<OwnedItem>, itemId: String, target: SlotRef): Boolean {
-        val resolved = ResolvedShelf(owned)
-        val me = resolved.byId[itemId] ?: return false
+        val resolved = resolve(owned)
+        val me = resolved.firstOrNull { it.itemId == itemId } ?: return false
+        if (surfaceOf(itemId) != ShelfSurface.SHELF || !isValid(target)) return false
         if (target == me.slotRef) return true
-        val others = resolved.items.filter { it.itemId != itemId }.map { it.slotRef }.toSet()
-        return isUsable(target, surfaceOf(itemId), others)
+        return resolved.none { it.itemId != itemId && surfaceOf(it.itemId) == ShelfSurface.SHELF && it.slotRef == target }
     }
 
-    private class ResolvedShelf(owned: List<OwnedItem>) {
-        val items = resolve(owned)
-        val byId = items.associateBy { it.itemId }
-    }
-
-    /** How many shelf rows are needed to show everything (wall notes do not add rows). */
-    fun tiersNeeded(resolved: List<OwnedItem>): Int =
-        maxOf(ShelfGeometry.MIN_TIERS, (resolved.filter { !it.slotRef.isWall }.maxOfOrNull { it.tier } ?: 0) + 1)
+    /** Slots in use by bookcase items (the wall has none). */
+    fun taken(resolved: List<OwnedItem>): Set<SlotRef> =
+        resolved.filter { surfaceOf(it.itemId) == ShelfSurface.SHELF }.map { it.slotRef }.toSet()
 
     /**
-     * Height in artwork px for an item: as big as fits its spot, so wide things (cat, camera) come out low and tall
-     * things (plants, lamps) come out tall. Notes are sized for the wall.
+     * Height in scene px for an item standing on [tier]: as big as fits, so wide things (cat, camera) come out low
+     * and tall things (plants, lamps) come out tall. The jar, gacha machine and the like have fixed sizes. Notes are
+     * sized for the wall.
      */
-    fun heightFor(item: CatalogItem, tier: Int, tiers: Int): Float {
-        if (item.surface == ShelfSurface.WALL) return min(MAX_NOTE_HEIGHT, MAX_NOTE_WIDTH / item.aspect)
-        val maxByHeight = min(ShelfGeometry.compartmentHeight(tier, tiers) - 8f, MAX_ITEM_HEIGHT)
+    fun heightFor(item: CatalogItem, tier: Int): Float {
+        item.fixedHeightPx?.let { return min(it, ShelfGeometry.compartmentHeight(tier) - 2f) }
+        if (item.surface == ShelfSurface.WALL) return wallSize(item).second
+        val maxByHeight = min(ShelfGeometry.compartmentHeight(tier) - 6f, MAX_ITEM_HEIGHT)
         val maxByWidth = MAX_ITEM_WIDTH / item.aspect
         return min(maxByHeight, maxByWidth)
     }
 
-    const val MAX_ITEM_WIDTH = 100f
-    private const val MAX_ITEM_HEIGHT = 105f
-    const val MAX_NOTE_WIDTH = 150f
-    private const val MAX_NOTE_HEIGHT = 120f
+    const val MAX_ITEM_WIDTH = 74f
+    private const val MAX_ITEM_HEIGHT = 80f
+    const val MAX_NOTE_WIDTH = 104f
+    private const val MAX_NOTE_HEIGHT = 104f
 }

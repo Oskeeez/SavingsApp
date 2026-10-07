@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class], version = 3, exportSchema = true)
+@Database(entities = [WantEntity::class, JarEntity::class, OwnedItemEntity::class, DecorChoiceEntity::class], version = 4, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun wantDao(): WantDao
     abstract fun jarDao(): JarDao
@@ -32,9 +32,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v4: things can be moved anywhere (free wall positions for notes) and the room's look can be chosen. */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `owned_items` ADD COLUMN `posX` REAL")
+                db.execSQL("ALTER TABLE `owned_items` ADD COLUMN `posY` REAL")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `decor_choice` (`kind` TEXT NOT NULL, `itemId` TEXT NOT NULL, PRIMARY KEY(`kind`))")
+            }
+        }
+
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "cooling_off_jar.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build()
     }
 }

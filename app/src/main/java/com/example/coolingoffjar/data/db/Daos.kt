@@ -79,4 +79,13 @@ interface ShelfDao {
 
     @Query("UPDATE owned_items SET tier = :tier, slot = :slot WHERE itemId = :itemId")
     suspend fun move(itemId: String, tier: Int, slot: Int)
+
+    @Query("UPDATE owned_items SET posX = :x, posY = :y WHERE itemId = :itemId")
+    suspend fun moveFree(itemId: String, x: Float, y: Float)
+
+    @Query("SELECT * FROM decor_choice")
+    fun observeChoices(): Flow<List<DecorChoiceEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun setChoice(choice: DecorChoiceEntity)
 }

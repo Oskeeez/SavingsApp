@@ -36,10 +36,20 @@ data class OwnedItemEntity(
     val tier: Int,
     val slot: Int,
     val purchasedAt: Long,
+    /** Free position on the wall (scene fractions), for notes. Null for everything else. */
+    val posX: Float? = null,
+    val posY: Float? = null,
 )
 
-fun OwnedItemEntity.toDomain() = OwnedItem(itemId, tier, slot, purchasedAt)
-fun OwnedItem.toEntity() = OwnedItemEntity(itemId, tier, slot, purchasedAt)
+/** Which wall, floor and shelf the user has chosen: one row per kind (the category name). */
+@Entity(tableName = "decor_choice")
+data class DecorChoiceEntity(
+    @PrimaryKey val kind: String,
+    val itemId: String,
+)
+
+fun OwnedItemEntity.toDomain() = OwnedItem(itemId, tier, slot, purchasedAt, posX, posY)
+fun OwnedItem.toEntity() = OwnedItemEntity(itemId, tier, slot, purchasedAt, x, y)
 
 fun WantEntity.toDomain() = Want(id, name, createdAt, unlockAt, status, decidedAt, WantIcons.normalize(iconKey))
 fun Want.toEntity() = WantEntity(id, name, createdAt, unlockAt, status, decidedAt, iconKey)

@@ -41,5 +41,21 @@ fun artRes(key: String): Int = when (key) {
     "note_good_days" -> R.drawable.note_good_days
     "note_doing_great" -> R.drawable.note_doing_great
     "note_kinder_you" -> R.drawable.note_kinder_you
+    "wall_cream" -> R.drawable.wall_cream
+    "wall_sage" -> R.drawable.wall_sage
+    "wall_blush" -> R.drawable.wall_blush
+    "wall_mist" -> R.drawable.wall_mist
+    "wall_butter" -> R.drawable.wall_butter
+    "floor_oak" -> R.drawable.floor_oak
+    "floor_walnut" -> R.drawable.floor_walnut
+    "floor_ash" -> R.drawable.floor_ash
+    "floor_slate" -> R.drawable.floor_slate
+    "shelf_honey" -> R.drawable.shelf_honey
+    "shelf_walnut" -> R.drawable.shelf_walnut
+    "shelf_sage" -> R.drawable.shelf_sage
+    "shelf_white" -> R.drawable.shelf_white
+    "shelf_charcoal" -> R.drawable.shelf_charcoal
+    "clock" -> R.drawable.item_desk_clock
+    "gacha" -> R.drawable.item_gacha_machine
     else -> error("No artwork for '$key'")
 }

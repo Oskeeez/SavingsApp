@@ -10,6 +10,8 @@ import com.example.coolingoffjar.data.repo.PurchaseResult
 import com.example.coolingoffjar.data.repo.ShelfRepository
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
+import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.SlotRef
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -28,6 +30,8 @@ data class ShopState(
     val owned: List<OwnedItem> = emptyList(),
     /** The most recent purchases, newest last: shown on the shelf strip above the shop. */
     val recentOwnedIds: List<String> = emptyList(),
+    /** The wall, floor and shelf currently in use. */
+    val look: RoomLook = RoomLook.DEFAULT,
 )
 
 sealed interface ShopEvent {
@@ -37,18 +41,23 @@ sealed interface ShopEvent {
 
 class ShopViewModel(private val shelfRepository: ShelfRepository) : ViewModel() {
 
-    val state: StateFlow<ShopState> = combine(shelfRepository.balance, shelfRepository.owned) { balance, owned ->
-        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned, owned.map { it.itemId })
+    val state: StateFlow<ShopState> = combine(shelfRepository.balance, shelfRepository.owned, shelfRepository.look) { balance, owned, look ->
+        ShopState(true, balance, owned.map { it.itemId }.toSet(), owned, owned.map { it.itemId }, look)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ShopState())
 
     private val _events = MutableSharedFlow<ShopEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<ShopEvent> = _events.asSharedFlow()
 
-    /** Buy [itemId] and put it at [slot] (null = next free spot). */
-    fun purchase(itemId: String, slot: SlotRef? = null) {
+    /** Put an owned wall, floor or shelf to use. */
+    fun use(itemId: String) {
+        viewModelScope.launch { shelfRepository.selectDecor(itemId) }
+    }
+
+    /** Buy [itemId] and put it at [slot] / [point] (null = next free spot). */
+    fun purchase(itemId: String, slot: SlotRef? = null, point: ScenePoint? = null) {
         viewModelScope.launch {
             _events.emit(
-                when (val result = shelfRepository.purchase(itemId, slot)) {
+                when (val result = shelfRepository.purchase(itemId, slot, point)) {
                     is PurchaseResult.Bought -> ShopEvent.Bought(itemId)
                     is PurchaseResult.Refused -> ShopEvent.Refused(result.reason)
                 },

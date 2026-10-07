@@ -13,12 +13,19 @@ class JarArtTest {
         for (n in 1..50) {
             assertEquals(JarArt.FULL, JarArt.stateFor(n, n))
             assertEquals(JarArt.FULL, JarArt.stateFor(n + 3, n)) // over-full (N lowered) is still full
-            if (n > 1) assertTrue("n=$n", JarArt.stateFor(n - 1, n) < JarArt.FULL)
+            if (n in 2..5) assertTrue("n=$n", JarArt.stateFor(n - 1, n) < JarArt.FULL)
+        }
+    }
+
+    @Test fun `a bigger jar shows one coin per coin up to five and keeps the five coin picture until it is full`() {
+        for (n in 6..50) {
+            assertEquals((0..5).toList(), (0..5).map { JarArt.stateFor(it, n) })
+            for (k in 5..n) assertEquals("n=$n k=$k", JarArt.FULL, JarArt.stateFor(k, n))
         }
     }
 
     @Test fun `anything in between uses the 1 to 4 coin pictures and never goes backwards`() {
-        for (n in 2..50) {
+        for (n in 2..5) {
             var previous = JarArt.EMPTY
             for (k in 1 until n) {
                 val s = JarArt.stateFor(k, n)

@@ -1,71 +1,60 @@
 package com.example.coolingoffjar.domain
 
 /**
- * The shelf artwork ("Empty Wooden Bookshelf in Warm Sunlight", cropped to the unit) is 562 x 1400 px: empty wall at
- * the top, the bookcase, then a strip of floor. To give the shelf as many rows as it needs it is drawn in three kinds
- * of slice, cut just under a board so the joins are invisible:
- *   - TOP:    the wall, and the top of the unit (things can stand on top of it)
- *   - MIDDLE: one compartment plus its board, repeated once per extra row
- *   - BOTTOM: the last compartment, the base and the floor
- * All numbers are artwork pixels.
+ * The room is one fixed picture, the "scene", 664 x 1186 px: a wall on top, then a floor from [WALL_HEIGHT] down. The
+ * five-level bookcase stands on the floor, drawn on top at [SHELF_SCALE]. Everything (objects, notes, the camera when
+ * it zooms) is positioned in scene pixels, so nothing ever depends on the screen size and the picture's edge is never
+ * shown: the home screen scales the scene to cover the screen and crops the overflow.
+ *
+ * Numbers marked "native" are pixels of the supplied shelf cut-out (491 x 659).
  */
 object ShelfGeometry {
-    const val ART_WIDTH = 562
-    const val ART_HEIGHT = 1400
+    const val SCENE_WIDTH = 664
+    const val SCENE_HEIGHT = 1186
+    const val WALL_HEIGHT = 764
 
-    private const val TOP_END = 562 // just under the top board
-    private const val MID_START = 712 // just under the second board
-    private const val MID_END = 866 // just under the third board
-    private const val BOTTOM_START = 1030 // just under the fourth board
+    const val LEVELS = 5
+    const val SLOTS_PER_LEVEL = 4
 
-    private const val TOP_STAND = 546 // feet line on the top board
-    private const val MID_STAND_IN_UNIT = 128 // feet line in a middle slice (measured from its top)
-    private const val BOTTOM_STAND_IN_SLICE = 145 // feet line on the base (measured from the slice top)
-    private const val TOP_HEADROOM = 96 // how tall things on top of the unit may be (notes hang on the wall above)
+    const val SHELF_ART_WIDTH = 491
+    const val SHELF_ART_HEIGHT = 659
+    const val SHELF_SCALE = 0.92f
+    const val SHELF_LEFT = (SCENE_WIDTH - SHELF_ART_WIDTH * SHELF_SCALE) / 2f
+    const val SHELF_BOTTOM = 950f
+    const val SHELF_TOP = SHELF_BOTTOM - SHELF_ART_HEIGHT * SHELF_SCALE
 
-    const val MIN_TIERS = 5
-    const val BOTTOM_HEIGHT = ART_HEIGHT - BOTTOM_START
-    private const val MID_HEIGHT = MID_END - MID_START
+    /** Where things' feet go on each board: a little in from the front edge of the board's top face (native y). */
+    private val STAND_NATIVE = intArrayOf(42, 178, 313, 445, 590)
 
-    /** Centres of the two rows of wall notes above the shelf. Row 0 is the upper one. */
-    private val WALL_ROW_CENTERS = intArrayOf(270, 400)
-    const val WALL_ROWS = 2
+    /** Underside of the board above each level (native y); the top level is open to the wall. */
+    private val CEILING_NATIVE = intArrayOf(-1, 64, 204, 341, 480)
 
-    /** A strip of the artwork: [srcTop]/[srcHeight] in the image, drawn at [dstTop] in the composed shelf. */
-    data class Slice(val srcTop: Int, val srcHeight: Int, val dstTop: Int)
+    /** Open width between the uprights at each level (native x). */
+    private val LEFT_NATIVE = intArrayOf(44, 61, 61, 62, 67)
+    private val RIGHT_NATIVE = intArrayOf(448, 429, 429, 429, 429)
 
-    fun slices(tiers: Int): List<Slice> {
-        val t = tiers.coerceAtLeast(2)
-        val result = ArrayList<Slice>()
-        var y = 0
-        result += Slice(0, TOP_END, y); y += TOP_END
-        repeat(t - 2) { result += Slice(MID_START, MID_HEIGHT, y); y += MID_HEIGHT }
-        result += Slice(BOTTOM_START, BOTTOM_HEIGHT, y)
-        return result
+    /** How tall things standing on the top of the bookcase may be (there is only wall above it). */
+    private const val TOP_HEADROOM = 100f
+
+    private fun sceneY(native: Int): Float = SHELF_TOP + native * SHELF_SCALE
+    private fun sceneX(native: Float): Float = SHELF_LEFT + native * SHELF_SCALE
+
+    /** y (scene px) of the board surface things on [tier] stand on. */
+    fun standLine(tier: Int): Float = sceneY(STAND_NATIVE[tier.coerceIn(0, LEVELS - 1)])
+
+    /** Free height (scene px) between a level's board and whatever is above it. */
+    fun compartmentHeight(tier: Int): Float {
+        val t = tier.coerceIn(0, LEVELS - 1)
+        return if (t == 0) TOP_HEADROOM else (STAND_NATIVE[t] - CEILING_NATIVE[t]) * SHELF_SCALE
     }
 
-    fun composedHeight(tiers: Int): Int = slices(tiers).last().let { it.dstTop + it.srcHeight }
+    /** x (scene px) of the left and right ends of the usable width of [tier]'s board. */
+    fun levelLeft(tier: Int): Float = sceneX(LEFT_NATIVE[tier.coerceIn(0, LEVELS - 1)].toFloat())
+    fun levelRight(tier: Int): Float = sceneX(RIGHT_NATIVE[tier.coerceIn(0, LEVELS - 1)].toFloat())
 
-    /** y of the board surface that things on [tier] stand on (feet line). */
-    fun standLine(tier: Int, tiers: Int): Int {
-        val t = tiers.coerceAtLeast(2)
-        return when {
-            tier <= 0 -> TOP_STAND
-            tier >= t - 1 -> TOP_END + (t - 2) * MID_HEIGHT + BOTTOM_STAND_IN_SLICE
-            else -> TOP_END + (tier - 1) * MID_HEIGHT + MID_STAND_IN_UNIT
-        }
-    }
+    /** Width of one slot on [tier]. */
+    fun slotWidth(tier: Int): Float = (levelRight(tier) - levelLeft(tier)) / SLOTS_PER_LEVEL
 
-    /** Usable height of the space above [tier]'s board. */
-    fun compartmentHeight(tier: Int, tiers: Int): Int {
-        val t = tiers.coerceAtLeast(2)
-        return when {
-            tier <= 0 -> TOP_HEADROOM
-            tier >= t - 1 -> BOTTOM_STAND_IN_SLICE
-            else -> MID_STAND_IN_UNIT
-        }
-    }
-
-    /** Vertical centre of a wall row (0 = upper). */
-    fun wallCenterY(wallRow: Int): Int = WALL_ROW_CENTERS[wallRow.coerceIn(0, WALL_ROWS - 1)]
+    /** Centre x (scene px) of slot [slot] on [tier]. */
+    fun slotCenterX(tier: Int, slot: Int): Float = levelLeft(tier) + slotWidth(tier) * (slot + 0.5f)
 }

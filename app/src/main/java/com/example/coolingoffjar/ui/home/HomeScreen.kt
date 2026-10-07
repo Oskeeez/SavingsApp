@@ -40,7 +40,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -55,17 +54,22 @@ import com.example.coolingoffjar.R
 import com.example.coolingoffjar.data.AppClock
 import com.example.coolingoffjar.domain.CoolOffRules
 import com.example.coolingoffjar.domain.WantStatus
-import com.example.coolingoffjar.ui.shelf.ShelfBoard
-import com.example.coolingoffjar.ui.shelf.ShelfFloorColor
+import com.example.coolingoffjar.domain.SceneCamera
+import com.example.coolingoffjar.domain.ShelfCatalog
+import com.example.coolingoffjar.domain.ShelfLayout
+import com.example.coolingoffjar.ui.shelf.ShelfScene
 import com.example.coolingoffjar.ui.theme.JarTheme
 import com.example.coolingoffjar.ui.util.formatDate
 import com.example.coolingoffjar.ui.util.rememberAnimationsEnabled
 import com.example.coolingoffjar.ui.util.rememberNowMillis
 
+/** How long the camera takes to zoom in on something (and out again). */
+private const val ZoomMillis = 780
+
 /**
- * Home is the shelf: a tall bookcase you scroll through, with your jar standing on it, the gacha machine
- * (Shop) and the desk clock (Settings). Tap the jar and the view zooms in to the jar scene. No bars, no
- * buttons: the objects are the navigation.
+ * Home is the room: a wall, a floor and the bookcase with your jar on it, the gacha machine (Shop) and the desk
+ * clock (Settings). Tap the jar, or anything you have bought, and the camera zooms in on it. Press and hold
+ * anything to move it. No bars, no buttons: the objects are the navigation.
  */
 @Composable
 fun HomeScreen(
@@ -82,8 +86,8 @@ fun HomeScreen(
     var memoryJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var spendJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var justAddedId by remember { mutableLongStateOf(-1L) }
-    var jarSceneOpen by rememberSaveable { mutableStateOf(false) }
-    var jarBounds by remember { mutableStateOf<Rect?>(null) } // the jar on screen when it was tapped
+    var zoomId by rememberSaveable { mutableStateOf<String?>(null) } // the object the camera is zoomed on, if any
+    var lastZoomId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val now = rememberNowMillis(nextUnlockAt = state.wants.map { it.unlockAt }.filter { it > AppClock.now() }.minOrNull())
     val items = remember(state.wants, now) { CoolOffRules.sortForDisplay(state.wants, now) }
@@ -117,100 +121,91 @@ fun HomeScreen(
         if (celebration != null) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
     }
 
-    BackHandler(enabled = jarSceneOpen) { jarSceneOpen = false }
+    BackHandler(enabled = zoomId != null) { zoomId = null }
 
-    // 0 = looking at the whole shelf, 1 = zoomed right in on the jar. One smooth move in both directions.
+    // The close-up target: the user's thing that was tapped (it keeps its target while zooming back out).
+    val placed = remember(state.owned) { ShelfLayout.resolve(state.owned) }
+    val shownId = zoomId ?: lastZoomId
+    val zoomTarget = remember(placed, shownId) {
+        placed.firstOrNull { it.itemId == shownId }?.let { SceneCamera.targetFor(it) }
+    }
+
+    // 0 = looking at the whole room, 1 = zoomed right in on the object. One smooth move in both directions.
     val zoom by animateFloatAsState(
-        targetValue = if (jarSceneOpen) 1f else 0f,
-        animationSpec = tween(if (motion) 650 else 120, easing = FastOutSlowInEasing),
-        label = "jarZoom",
+        targetValue = if (zoomId != null) 1f else 0f,
+        animationSpec = tween(if (motion) ZoomMillis else 144, easing = FastOutSlowInEasing),
+        label = "zoom",
     )
 
-    val scroll = rememberScrollState()
-
-    BoxWithConstraints(Modifier.fillMaxSize().background(JarTheme.palette.background)) {
-        val screenW = constraints.maxWidth.toFloat()
-        val screenH = constraints.maxHeight.toFloat()
-        // Where the jar should end up when zoomed in: centred, in the upper part of the screen above the panel.
-        val targetCenter = Offset(screenW / 2f, screenH * 0.24f)
-        val targetHeight = screenH * 0.30f
-        val bounds = jarBounds
-        val fullScale = if (bounds != null && bounds.height > 1f) (targetHeight / bounds.height).coerceIn(1f, 5f) else 1f
-
-        // ---- The shelf, scrollable. Zooming scales the whole picture about the jar and slides the jar to the target.
-        Column(
-            Modifier
+    Box(Modifier.fillMaxSize().background(JarTheme.palette.background)) {
+        // ---- The room. Zooming moves the camera in on the tapped object and never past the edge of the picture.
+        ShelfScene(
+            owned = state.owned,
+            look = state.look,
+            jarFilled = shownJar.filledCount,
+            notBuysPerJar = state.settings.notBuysPerJar,
+            readyCount = readyCount,
+            jarGlow = if (celebration != null) 1f else 0f,
+            memoryJars = state.completedJars,
+            onObjectTap = { id ->
+                lastZoomId = id
+                zoomId = id
+            },
+            onOpenShop = onOpenShop,
+            onOpenSettings = onOpenSettings,
+            onMemoryJar = { memoryJarId = it.id },
+            onMoveItem = viewModel::moveItem,
+            onMoveNote = viewModel::moveNote,
+            zoom = { zoom },
+            zoomTarget = zoomTarget,
+            modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer {
-                    if (bounds != null) {
-                        val s = 1f + (fullScale - 1f) * zoom
-                        scaleX = s
-                        scaleY = s
-                        transformOrigin = TransformOrigin(bounds.center.x / size.width, bounds.center.y / size.height)
-                        translationX = (targetCenter.x - bounds.center.x) * zoom
-                        translationY = (targetCenter.y - bounds.center.y) * zoom
-                    }
-                }
-                .then(if (jarSceneOpen) Modifier.clearAndSetSemantics { } else Modifier)
-                .verticalScroll(scroll, enabled = !jarSceneOpen),
-        ) {
-            Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars))
-            ShelfBoard(
-                owned = state.owned,
-                jarFilled = shownJar.filledCount,
-                notBuysPerJar = state.settings.notBuysPerJar,
-                readyCount = readyCount,
-                jarGlow = if (celebration != null) 1f else 0f,
-                memoryJars = state.completedJars,
-                onOpenJar = { rect ->
-                    if (rect != null) {
-                        jarBounds = rect
-                        jarSceneOpen = true
-                    }
-                },
-                onOpenShop = onOpenShop,
-                onOpenSettings = onOpenSettings,
-                onMemoryJar = { memoryJarId = it.id },
-                onMoveItem = viewModel::moveItem,
-            )
-            // The shelf stands on a wooden floor: carry it under the gesture bar.
-            Spacer(
-                Modifier
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(Color(ShelfFloorColor)),
-            )
-        }
+                .then(if (zoomId != null) Modifier.clearAndSetSemantics { } else Modifier),
+        )
 
-        // ---- While zoomed in, a tap anywhere above the panel goes back to the whole shelf.
-        if (jarSceneOpen) {
+        // ---- While zoomed in, a tap anywhere above the panel goes back to the whole room.
+        if (zoomId != null) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { jarSceneOpen = false }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { zoomId = null }
                     .clearAndSetSemantics { },
             )
         }
 
-        // ---- The words and buttons, rising as the jar fills the view.
+        // ---- The words and buttons, rising as the object fills the view.
         if (zoom > 0.001f) {
-            JarPanel(
-                jarFilled = shownJar.filledCount,
-                notBuysPerJar = state.settings.notBuysPerJar,
-                items = items,
-                now = now,
-                justAddedId = justAddedId,
-                onBack = { jarSceneOpen = false },
-                onAdd = { showAddSheet = true },
-                onItemClick = { decisionWantId = it.id },
-                onRemove = viewModel::removeWant,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = zoom
-                        translationY = (1f - zoom) * size.height * 0.2f
-                    },
-            )
+            val panelModifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = zoom
+                    translationY = (1f - zoom) * size.height * 0.2f
+                }
+            if (shownId == "jar") {
+                JarPanel(
+                    jarFilled = shownJar.filledCount,
+                    notBuysPerJar = state.settings.notBuysPerJar,
+                    items = items,
+                    now = now,
+                    justAddedId = justAddedId,
+                    onBack = { zoomId = null },
+                    onAdd = { showAddSheet = true },
+                    onItemClick = { decisionWantId = it.id },
+                    onRemove = viewModel::removeWant,
+                    modifier = panelModifier,
+                )
+            } else {
+                val entry = shownId?.let { ShelfCatalog.find(it) }
+                val owned = state.owned.firstOrNull { it.itemId == shownId }
+                if (entry != null && owned != null) {
+                    ItemPanel(
+                        name = entry.name,
+                        unlockedOn = formatDate(owned.purchasedAt),
+                        onBack = { zoomId = null },
+                        modifier = panelModifier,
+                    )
+                }
+            }
         }
 
         if (celebration != null) {

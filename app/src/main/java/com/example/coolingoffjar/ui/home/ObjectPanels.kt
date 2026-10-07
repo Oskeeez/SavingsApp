@@ -159,3 +159,64 @@ fun JarPanel(
         }
     }
 }
+
+/**
+ * The paper that rises while the camera is close up on one of the user's things: its name and the day it was unlocked,
+ * centred, with a way back.
+ */
+@Composable
+fun ItemPanel(
+    name: String,
+    unlockedOn: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val palette = JarTheme.palette
+    BoxWithConstraints(modifier) {
+        val statusBar = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 8.dp, top = statusBar + 4.dp)
+                .size(48.dp)
+                .background(palette.background.copy(alpha = 0.8f), CircleShape),
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.scene_back), tint = palette.text)
+        }
+        Surface(
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            shape = TornPaperShape(),
+            color = palette.background,
+            shadowElevation = 6.dp,
+        ) {
+            Column(
+                Modifier
+                    .padding(horizontal = 22.dp)
+                    .padding(top = 30.dp, bottom = 28.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                androidx.compose.foundation.layout.Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = palette.text,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                    )
+                    SproutGlyph(26.dp, palette.sageDeep)
+                }
+                Text(
+                    stringResource(R.string.item_unlocked_on, unlockedOn),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = palette.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+    }
+}

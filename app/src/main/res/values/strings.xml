@@ -4,7 +4,6 @@
     <string name="home_shelf">Shelf</string>
     <string name="home_settings">Settings</string>
     <string name="home_add">Add something I want</string>
-    <string name="home_empty">Nothing on your mind right now. When something catches your eye, pop it in and let it cool off.</string>
     <string name="jar_description">Jar is %1$d of %2$d full</string>
     <string name="add_title">Add something I want</string>
     <string name="add_subtitle">It\'s okay to want nice things. Add it here and give yourself time.</string>
@@ -107,7 +106,6 @@
     <string name="scene_title">Take your time.</string>
     <string name="scene_subtitle">A little patience now, a happier you later.</string>
     <string name="scene_progress">%1$d of %2$d</string>
-    <string name="scene_waiting">Waiting on…</string>
     <string name="scene_note">Good things take time.</string>
     <string name="scene_back">Back to the shelf</string>
 
@@ -155,8 +153,12 @@
     <string name="shelf_header_title">My shelf</string>
     <string name="shelf_header_body">A collection of good decisions. Each item is a reminder of your patience.</string>
     <string name="place_wall_spot_description">Empty wall spot, row %1$d, position %2$d</string>
+    <string name="item_unlocked_on">Unlocked %1$s</string>
+    <string name="shop_use_this">Use this</string>
+    <string name="shop_in_use">In use</string>
     <string name="place_title">Where should it go?</string>
     <string name="place_subtitle">Tap an empty spot for the %1$s</string>
+    <string name="place_subtitle_wall">Tap or drag on the wall to hang the %1$s exactly where you like</string>
     <string name="place_confirm">Place it here</string>
     <string name="place_cancel">Cancel</string>
     <string name="place_spot_description">Empty spot, row %1$d, position %2$d</string>

@@ -11,6 +11,8 @@ import com.example.coolingoffjar.data.repo.DecisionResult
 import com.example.coolingoffjar.data.repo.ShelfRepository
 import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.OwnedItem
+import com.example.coolingoffjar.domain.RoomLook
+import com.example.coolingoffjar.domain.ScenePoint
 import com.example.coolingoffjar.domain.Settings
 import com.example.coolingoffjar.domain.SlotRef
 import com.example.coolingoffjar.domain.Want
@@ -34,6 +36,8 @@ data class HomeState(
     val completedJars: List<Jar> = emptyList(),
     /** Everything bought for the shelf. */
     val owned: List<OwnedItem> = emptyList(),
+    /** The wall, floor and shelf in use. */
+    val look: RoomLook = RoomLook.DEFAULT,
 )
 
 sealed interface HomeEvent {
@@ -56,8 +60,16 @@ class HomeViewModel(
             repository.completedJars,
         ) { jar, wants, settings, celebration, completed -> HomeState(true, jar, wants, settings, celebration, completed) },
         shelfRepository.owned,
-    ) { base, owned -> base.copy(owned = owned) }
+        shelfRepository.look,
+    ) { base, owned, look -> base.copy(owned = owned, look = look) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    init {
+        // The jar, clock, gacha machine and memory jars live in the same table as everything else so they can be moved.
+        viewModelScope.launch {
+            repository.completedJars.collect { shelfRepository.ensureDefaults(it.size) }
+        }
+    }
 
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<HomeEvent> = _events.asSharedFlow()
@@ -99,6 +111,11 @@ class HomeViewModel(
     /** Drag and drop on the shelf: the item settles into [slot] if it is free. */
     fun moveItem(itemId: String, slot: SlotRef) {
         viewModelScope.launch { shelfRepository.move(itemId, slot) }
+    }
+
+    /** A note dropped on the wall: it stays exactly where it was let go. */
+    fun moveNote(itemId: String, point: ScenePoint) {
+        viewModelScope.launch { shelfRepository.moveFree(itemId, point) }
     }
 
     fun dismissCelebration() {

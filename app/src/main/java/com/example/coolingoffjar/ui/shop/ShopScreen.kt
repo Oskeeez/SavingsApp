@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.painterResource
@@ -70,7 +71,7 @@ import com.example.coolingoffjar.ui.theme.JarTheme
 /** The shelf strip along the top of the shop: what you have bought lately, or a cosy default. */
 internal fun bannerFor(recentOwnedIds: List<String>): List<BannerItem> {
     val xs = listOf(0.24f, 0.52f, 0.80f)
-    val mine = recentOwnedIds.filter { ShelfCatalog.find(it)?.surface != ShelfSurface.WALL }.takeLast(3)
+    val mine = recentOwnedIds.filter { ShelfCatalog.find(it)?.let { e -> e.surface == ShelfSurface.SHELF && e.category != ShelfCategory.CORE } == true }.takeLast(3)
     val keys = if (mine.size >= 3) mine else (mine + listOf("cat_calico", "wooden_house", "framed_landscape").filter { it !in mine }).take(3)
     return keys.mapIndexed { i, key -> BannerItem(key, xs[i]) }
 }
@@ -124,7 +125,7 @@ fun ShopScreen(
                     )
                 }
                 // The shelf pokes in above the shop.
-                ShelfBanner(bannerFor(state.recentOwnedIds), Modifier.padding(top = 4.dp))
+                ShelfBanner(bannerFor(state.recentOwnedIds), state.look, Modifier.padding(top = 4.dp))
             }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
@@ -133,7 +134,7 @@ fun ShopScreen(
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 CategoryChip(stringResource(R.string.shop_all), selected = category == null, onClick = { categoryName = "" })
-                for (c in ShelfCategory.entries) {
+                for (c in ShelfCategory.entries.filter { it.inShop }) {
                     CategoryChip(c.label, selected = category == c, onClick = { categoryName = c.name })
                 }
             }
@@ -169,10 +170,16 @@ private fun ProductCard(item: CatalogItem, owned: Boolean, affordable: Boolean, 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            val swatch = item.category == ShelfCategory.WALLS || item.category == ShelfCategory.FLOORS
             Image(
                 painterResource(artRes(item.artKey)), null,
-                Modifier.fillMaxWidth().aspectRatio(1f).padding(8.dp).alpha(if (owned) 0.55f else 1f),
-                contentScale = ContentScale.Fit,
+                Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .padding(if (swatch) 6.dp else 8.dp)
+                    .then(if (swatch) Modifier.clip(RoundedCornerShape(12.dp)) else Modifier)
+                    .alpha(if (owned && !swatch) 0.55f else 1f),
+                contentScale = if (swatch) ContentScale.Crop else ContentScale.Fit,
             )
             Text(
                 item.name,
