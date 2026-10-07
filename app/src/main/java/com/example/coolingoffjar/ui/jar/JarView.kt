@@ -30,7 +30,8 @@ fun JarView(filledCount: Int, notBuysPerJar: Int, modifier: Modifier = Modifier)
 /** Lower-level jar: shows exactly [restingCoins] resting coins. Stage 5 animates coins on top of this. */
 @Composable
 fun JarCanvas(restingCoins: Int, contentDescription: String, modifier: Modifier = Modifier) {
-    val paints = remember(JarTheme.palette) { JarPaints(JarTheme.palette) }
+    val palette = JarTheme.palette
+    val paints = remember(palette) { JarPaints(palette) }
     val body = remember { jarBodyPath() }
 
     Canvas(
