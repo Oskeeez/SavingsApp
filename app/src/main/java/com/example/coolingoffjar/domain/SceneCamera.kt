@@ -41,15 +41,16 @@ object SceneCamera {
         if (target == null || progress <= 0f) return rest
         val p = progress.coerceIn(0f, 1f)
         val kT = (TARGET_HEIGHT * screenH / max(target.height, 1f)).coerceIn(k0, k0 * MAX_ZOOM_FACTOR)
-        // The scene point at the middle of the screen that puts the object at TARGET_Y.
-        val close = Frame(kT, target.centerX, target.centerY + (0.5f - TARGET_Y) * screenH / kT)
-        val k = rest.scale + (close.scale - rest.scale) * p
+        // Zoom straight in on the object: it travels in a straight line on the screen from where it rests to where
+        // the close-up wants it, growing as it goes, so the camera never swings to the middle of the room first.
+        val restX = (target.centerX - rest.centerX) * k0 + screenW / 2f
+        val restY = (target.centerY - rest.centerY) * k0 + screenH / 2f
+        val sx = restX + (screenW / 2f - restX) * p
+        val sy = restY + (TARGET_Y * screenH - restY) * p
+        // Scale grows evenly in ratio, which feels like a constant-speed zoom.
+        val k = k0 * Math.pow((kT / k0).toDouble(), p.toDouble()).toFloat()
         return clamp(
-            Frame(
-                k,
-                rest.centerX + (close.centerX - rest.centerX) * p,
-                rest.centerY + (close.centerY - rest.centerY) * p,
-            ),
+            Frame(k, target.centerX - (sx - screenW / 2f) / k, target.centerY - (sy - screenH / 2f) / k),
             screenW, screenH,
         )
     }

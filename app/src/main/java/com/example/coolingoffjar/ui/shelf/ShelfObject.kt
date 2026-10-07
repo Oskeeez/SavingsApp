@@ -61,7 +61,7 @@ fun Modifier.lit(filter: ColorFilter): Modifier = drawWithContent {
 }
 
 /**
- * A soft shadow that starts at the contact point and falls down and to the right, away from the window light. Drawn
+ * A soft shadow that sits right under the object, behind its base and nudged slightly to the right, away from the window light. Drawn
  * in a few soft layers (no blur, so it works on every Android version) and generated from the object's own size.
  */
 fun Modifier.contactShadow(l: ObjectLighting, unit: Dp): Modifier = drawBehind {
@@ -85,10 +85,10 @@ fun Modifier.contactShadow(l: ObjectLighting, unit: Dp): Modifier = drawBehind {
     val width = size.width * l.shadowWidthScale
     val thickness = l.shadowThickness * u
     val baseY = size.height
-    // The wide, soft part, thrown toward the lower right.
-    ellipse(size.width / 2f + l.shadowOffsetX * u, baseY + l.shadowOffsetY * u - thickness * 0.2f, width * 1.05f, thickness, l.shadowOpacity)
+    // The wide, soft part: almost directly under the object, nudged a little to the right.
+    ellipse(size.width / 2f + l.shadowOffsetX * u, baseY + l.shadowOffsetY * u - thickness * 0.3f, width * 1.0f, thickness, l.shadowOpacity)
     // A tight, darker core right at the contact point so the object clearly sits on the board.
-    ellipse(size.width / 2f + l.shadowOffsetX * u * 0.35f, baseY + l.shadowOffsetY * u * 0.3f - thickness * 0.1f, width * 0.78f, thickness * 0.55f, (l.shadowOpacity * 1.25f).coerceAtMost(0.5f))
+    ellipse(size.width / 2f + l.shadowOffsetX * u * 0.35f, baseY - thickness * 0.2f, width * 0.8f, thickness * 0.6f, (l.shadowOpacity * 1.25f).coerceAtMost(0.5f))
 }
 
 /**

@@ -20,7 +20,7 @@ object ShelfGeometry {
     const val SHELF_ART_HEIGHT = 659
     const val SHELF_SCALE = 0.92f
     const val SHELF_LEFT = (SCENE_WIDTH - SHELF_ART_WIDTH * SHELF_SCALE) / 2f
-    const val SHELF_BOTTOM = 950f
+    const val SHELF_BOTTOM = 806f
     const val SHELF_TOP = SHELF_BOTTOM - SHELF_ART_HEIGHT * SHELF_SCALE
 
     /** Where things' feet go on each board: a little in from the front edge of the board's top face (native y). */

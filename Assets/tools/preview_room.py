@@ -9,7 +9,7 @@ SCENE_W, SCENE_H, WALL_H = 664, 1186, 764
 S = 0.92
 SHELF_W, SHELF_H = 491, 659
 LEFT = (SCENE_W - SHELF_W * S) / 2
-BOTTOM = 950.0
+BOTTOM = 806.0
 TOP = BOTTOM - SHELF_H * S
 STAND = [42, 178, 313, 445, 590]
 CEIL = [-1, 64, 204, 341, 480]
@@ -24,7 +24,7 @@ def comp_h(t): return 100.0 if t == 0 else (STAND[t] - CEIL[t]) * S
 def slot_x(t, i): return scene_x(LN[t]) + (scene_x(RN[t]) - scene_x(LN[t])) / 4 * (i + .5)
 
 # zone lighting copied from ShelfLighting.kt
-ZONES = [(1.04, 0.015, 0.24, 6.0, 2.2, 0.75), (1.0, 0.025, 0.28, 6.5, 2.4, 0.7), (0.97, 0.032, 0.31, 6.5, 2.6, 0.65), (0.945, 0.04, 0.34, 7.0, 2.8, 0.6), (0.92, 0.048, 0.36, 7.0, 3.0, 0.55)]
+ZONES = [(1.04, 0.015, 0.24, 2.4, 0.6, 0.75), (1.0, 0.025, 0.28, 2.6, 0.7, 0.7), (0.97, 0.032, 0.31, 2.8, 0.8, 0.65), (0.945, 0.04, 0.34, 3.0, 0.9, 0.6), (0.92, 0.048, 0.36, 3.2, 1.0, 0.55)]
 PROFILES = {'clock':(.85,4.5,.9),'film_camera':(.9,5,1.0),'gacha':(1.08,10,1.2),'jar':(1.0,8,1.1),'cat_calico':(1.08,8,.95),
             'books_stack':(.9,3.5,1.0),'books_standing':(.9,3.5,1.0),'anthurium':(1.05,8,.9),'monstera':(1.05,8,.9),'bonsai':(1.05,8,.9),
             'mushroom_lamp':(.95,6,.95),'rabbit':(1.05,7,.95),'world_globe':(.92,6,1.0),'flower_vase':(1.05,8,.9),'framed_landscape':(.9,4,.9),
@@ -84,8 +84,8 @@ def render(items, W=1080, H=2400, header=True):
             sw = w * L['ws'] * k0; th = L['th'] * k0
             cxs = (cx - w / 2) * k0 + pw / 2
             for (ccx, ccy, ww, tt, aa) in [
-                (cxs + L['dx'] * k0, feet * k0 + L['dy'] * k0 - th * .2, sw * 1.05, th, L['so']),
-                (cxs + L['dx'] * k0 * .35, feet * k0 + L['dy'] * k0 * .3 - th * .1, sw * .78, th * .55, min(.5, L['so'] * 1.25))]:
+                (cxs + L['dx'] * k0, feet * k0 + L['dy'] * k0 - th * .3, sw * 1.0, th, L['so']),
+                (cxs, feet * k0 - th * .2, sw * .8, th * .6, min(.5, L['so'] * 1.25))]:
                 a = shadow_layer(big.size, ccx, ccy, ww, tt, aa, L['bl'])
                 col = np.zeros((big.size[1], big.size[0], 4)); col[..., 0] = 0x3A; col[..., 1] = 0x20; col[..., 2] = 0x10; col[..., 3] = a * 255
                 lay = Image.alpha_composite(lay, Image.fromarray(col.astype(np.uint8), 'RGBA'))

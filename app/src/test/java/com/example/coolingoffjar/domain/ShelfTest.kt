@@ -52,7 +52,8 @@ class ShelfTest {
 
     @Test fun `the shelf stands on the floor and leaves wall above it for a heading and a picture frame`() {
         assertTrue(ShelfGeometry.SHELF_BOTTOM > ShelfGeometry.WALL_HEIGHT)
-        assertTrue(ShelfGeometry.SHELF_TOP > 300f)
+        assertTrue(ShelfGeometry.SHELF_BOTTOM < ShelfGeometry.WALL_HEIGHT + 60f) // against the wall, not out in the room
+        assertTrue(ShelfGeometry.SHELF_TOP > 180f)
         assertTrue(ShelfGeometry.SHELF_LEFT > 0f)
         assertTrue(ShelfGeometry.SHELF_BOTTOM < ShelfGeometry.SCENE_HEIGHT)
     }

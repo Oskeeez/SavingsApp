@@ -401,7 +401,7 @@ private fun BoxScope.SceneImage(res: Int, unit: Dp, x: Float, y: Float, w: Float
     )
 }
 
-/** A note hanging on the wall, centred on ([cx], [cy]) in scene px, with a soft little shadow behind it. */
+/** A note hanging on the wall, centred on ([cx], [cy]) in scene px. Its picture is transparent: nothing is drawn behind it. */
 @Composable
 private fun BoxScope.WallNote(artKey: String, unit: Dp, cx: Float, cy: Float, w: Float, h: Float, modifier: Modifier) {
     Box(
@@ -411,13 +411,6 @@ private fun BoxScope.WallNote(artKey: String, unit: Dp, cx: Float, cy: Float, w:
             .size(unit * w, unit * h)
             .then(modifier),
     ) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .offset(unit * 2.5f, unit * 3f)
-                .alpha(0.14f)
-                .background(androidx.compose.ui.graphics.Color(0xFF4A2C14), androidx.compose.foundation.shape.RoundedCornerShape(unit * 4f)),
-        )
         Image(painterResource(artRes(artKey)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     }
 }

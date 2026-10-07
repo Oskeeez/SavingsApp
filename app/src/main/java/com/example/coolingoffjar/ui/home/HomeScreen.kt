@@ -64,7 +64,7 @@ import com.example.coolingoffjar.ui.util.rememberAnimationsEnabled
 import com.example.coolingoffjar.ui.util.rememberNowMillis
 
 /** How long the camera takes to zoom in on something (and out again). */
-private const val ZoomMillis = 780
+private const val ZoomMillis = 1100
 
 /**
  * Home is the room: a wall, a floor and the bookcase with your jar on it, the gacha machine (Shop) and the desk

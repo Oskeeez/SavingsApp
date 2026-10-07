@@ -43,11 +43,11 @@ data class ShadowProfile(val width: Float, val thickness: Float, val strength: F
 object ShelfLighting {
     /** One zone per level, top to bottom. */
     val ZONES: List<ZoneLighting> = listOf(
-        ZoneLighting(brightness = 1.040f, warmth = 0.015f, shadowOpacity = 0.24f, shadowOffsetX = 6.0f, shadowOffsetY = 2.2f, shadowBlur = 0.75f),
-        ZoneLighting(brightness = 1.000f, warmth = 0.025f, shadowOpacity = 0.28f, shadowOffsetX = 6.5f, shadowOffsetY = 2.4f, shadowBlur = 0.70f),
-        ZoneLighting(brightness = 0.970f, warmth = 0.032f, shadowOpacity = 0.31f, shadowOffsetX = 6.5f, shadowOffsetY = 2.6f, shadowBlur = 0.65f),
-        ZoneLighting(brightness = 0.945f, warmth = 0.040f, shadowOpacity = 0.34f, shadowOffsetX = 7.0f, shadowOffsetY = 2.8f, shadowBlur = 0.60f),
-        ZoneLighting(brightness = 0.920f, warmth = 0.048f, shadowOpacity = 0.36f, shadowOffsetX = 7.0f, shadowOffsetY = 3.0f, shadowBlur = 0.55f),
+        ZoneLighting(brightness = 1.040f, warmth = 0.015f, shadowOpacity = 0.24f, shadowOffsetX = 2.4f, shadowOffsetY = 0.6f, shadowBlur = 0.75f),
+        ZoneLighting(brightness = 1.000f, warmth = 0.025f, shadowOpacity = 0.28f, shadowOffsetX = 2.6f, shadowOffsetY = 0.7f, shadowBlur = 0.70f),
+        ZoneLighting(brightness = 0.970f, warmth = 0.032f, shadowOpacity = 0.31f, shadowOffsetX = 2.8f, shadowOffsetY = 0.8f, shadowBlur = 0.65f),
+        ZoneLighting(brightness = 0.945f, warmth = 0.040f, shadowOpacity = 0.34f, shadowOffsetX = 3.0f, shadowOffsetY = 0.9f, shadowBlur = 0.60f),
+        ZoneLighting(brightness = 0.920f, warmth = 0.048f, shadowOpacity = 0.36f, shadowOffsetX = 3.2f, shadowOffsetY = 1.0f, shadowBlur = 0.55f),
     )
 
     private val STANDARD = ShadowProfile(width = 0.95f, thickness = 7f, strength = 1f)
