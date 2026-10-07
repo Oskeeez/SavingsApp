@@ -1,5 +1,6 @@
 <resources>
-    <style name="Theme.CoolingOffJar" parent="android:Theme.Material.NoActionBar">
+    <!-- Same as the day theme: the app stays cream even when the phone is in dark mode. -->
+    <style name="Theme.CoolingOffJar" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

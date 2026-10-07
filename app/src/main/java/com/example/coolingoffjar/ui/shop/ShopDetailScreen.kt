@@ -38,7 +38,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -86,6 +89,7 @@ fun ShopDetailScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val owned = item.id in state.ownedIds
+    var placing by rememberSaveable { mutableStateOf(false) }
     val affordable = state.balance >= item.cost
     val placed = stringResource(R.string.shop_placed, item.name)
     val notEnough = stringResource(R.string.shop_not_enough_snackbar)
@@ -191,7 +195,7 @@ fun ShopDetailScreen(
                     ) { Text(stringResource(R.string.shop_view_shelf), color = palette.text) }
                 } else {
                     Button(
-                        onClick = { viewModel.purchase(item.id) },
+                        onClick = { placing = true },
                         enabled = affordable,
                         modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(min = 56.dp),
                         shape = RoundedCornerShape(50),
@@ -232,5 +236,18 @@ fun ShopDetailScreen(
         }
 
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+    }
+
+    // Buying asks where it should stand first: nothing is spent until a spot is chosen.
+    if (placing && !owned) {
+        PlacementDialog(
+            item = item,
+            owned = state.owned,
+            onConfirm = { slot ->
+                placing = false
+                viewModel.purchase(item.id, slot)
+            },
+            onDismiss = { placing = false },
+        )
     }
 }

@@ -150,4 +150,19 @@
         <item quantity="one">Need %d more coin</item>
         <item quantity="other">Need %d more coins</item>
     </plurals>
+
+    <!-- Choosing where a purchase goes -->
+    <string name="place_title">Where should it go?</string>
+    <string name="place_subtitle">Tap an empty spot for the %1$s</string>
+    <string name="place_confirm">Place it here</string>
+    <string name="place_cancel">Cancel</string>
+    <string name="place_spot_description">Empty spot, row %1$d, position %2$d</string>
+
+    <!-- Spending a freebie -->
+    <string name="spend_title">What will you spend it on?</string>
+    <string name="spend_subtitle">Pick one of the things you have been waiting for. It is yours to enjoy, guilt-free.</string>
+    <string name="spend_subtitle_empty">Nothing on your list right now. Spend it on anything you like.</string>
+    <string name="spend_confirm">Spend my freebie</string>
+    <string name="spend_not_yet">Not yet</string>
+    <string name="spend_something_else">Something else</string>
 </resources>

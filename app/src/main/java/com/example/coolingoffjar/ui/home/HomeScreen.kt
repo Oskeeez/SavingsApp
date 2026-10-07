@@ -78,6 +78,7 @@ fun HomeScreen(
     var showAddSheet by rememberSaveable { mutableStateOf(false) }
     var decisionWantId by rememberSaveable { mutableLongStateOf(-1L) }
     var memoryJarId by rememberSaveable { mutableLongStateOf(-1L) }
+    var spendJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var justAddedId by remember { mutableLongStateOf(-1L) }
     var jarSceneOpen by rememberSaveable { mutableStateOf(false) }
     var zoomOrigin by remember { mutableStateOf(Offset(0.3f, 0.3f)) } // in screen pixels once known; fraction until then
@@ -199,7 +200,7 @@ fun HomeScreen(
 
         if (celebration != null) {
             FreebieCard(
-                onUseFreebie = { viewModel.useFreebie(celebration.id) },
+                onUseFreebie = { spendJarId = celebration.id },
                 onLater = viewModel::dismissCelebration,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -230,6 +231,20 @@ fun HomeScreen(
         )
     }
 
+    // Using a freebie first asks what it is being spent on.
+    val spendJar = (listOfNotNull(celebration) + state.completedJars).firstOrNull { it.id == spendJarId }
+    if (spendJar != null && spendJar.hasUnusedFreebie) {
+        FreebieSpendSheet(
+            items = items,
+            now = now,
+            onSpend = { wantId ->
+                viewModel.useFreebie(spendJar.id, wantId)
+                spendJarId = -1L
+            },
+            onDismiss = { spendJarId = -1L },
+        )
+    }
+
     // A completed jar on the shelf: a memory, and the place to spend a freebie you said "Later" to.
     val memoryJar = state.completedJars.firstOrNull { it.id == memoryJarId }
     if (memoryJar != null) {
@@ -250,7 +265,7 @@ fun HomeScreen(
             },
             confirmButton = {
                 if (memoryJar.hasUnusedFreebie) {
-                    TextButton(onClick = { viewModel.useFreebie(memoryJar.id); memoryJarId = -1L }) {
+                    TextButton(onClick = { spendJarId = memoryJar.id; memoryJarId = -1L }) {
                         Text(stringResource(R.string.freebie_use))
                     }
                 } else {

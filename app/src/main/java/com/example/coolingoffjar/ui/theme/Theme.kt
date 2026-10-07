@@ -1,6 +1,5 @@
 package com.example.coolingoffjar.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
@@ -52,6 +51,8 @@ private fun JarPalette.toColorScheme() =
             surfaceContainerLow = background,
             surfaceContainer = background,
             surfaceContainerHigh = background,
+            inverseSurface = text,
+            inverseOnSurface = background,
             outline = glassEdge,
             outlineVariant = glassEdge.copy(alpha = 0.6f),
         )
@@ -65,10 +66,13 @@ private val JarShapes = Shapes(
     extraLarge = RoundedCornerShape(36.dp),
 )
 
-/** Follows the system dark-mode setting. Dynamic colour is intentionally not used: the palette is the brand. */
+/**
+ * Always the cream design-system palette, whatever the phone's dark-mode setting: the room is meant to look warm and
+ * sunny. (A dark palette exists for a possible future Appearance option.) Dynamic colour is intentionally not used.
+ */
 @Composable
 fun CoolingOffJarTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val palette = if (darkTheme) DarkJarPalette else LightJarPalette
