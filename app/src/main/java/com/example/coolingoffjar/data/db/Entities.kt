@@ -5,6 +5,7 @@ import androidx.room.PrimaryKey
 import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.Want
+import com.example.coolingoffjar.domain.WantIcons
 import com.example.coolingoffjar.domain.WantStatus
 
 // No price, amount or currency column anywhere, by design.
@@ -16,6 +17,7 @@ data class WantEntity(
     val unlockAt: Long,
     val status: WantStatus,
     val decidedAt: Long?,
+    val iconKey: String,
 )
 
 @Entity(tableName = "jars")
@@ -39,7 +41,7 @@ data class OwnedItemEntity(
 fun OwnedItemEntity.toDomain() = OwnedItem(itemId, tier, slot, purchasedAt)
 fun OwnedItem.toEntity() = OwnedItemEntity(itemId, tier, slot, purchasedAt)
 
-fun WantEntity.toDomain() = Want(id, name, createdAt, unlockAt, status, decidedAt)
-fun Want.toEntity() = WantEntity(id, name, createdAt, unlockAt, status, decidedAt)
+fun WantEntity.toDomain() = Want(id, name, createdAt, unlockAt, status, decidedAt, WantIcons.normalize(iconKey))
+fun Want.toEntity() = WantEntity(id, name, createdAt, unlockAt, status, decidedAt, iconKey)
 fun JarEntity.toDomain() = Jar(id, filledCount, completedAt, freebieUsed, freebieUsedAt)
 fun Jar.toEntity() = JarEntity(id, filledCount, completedAt, freebieUsed, freebieUsedAt)

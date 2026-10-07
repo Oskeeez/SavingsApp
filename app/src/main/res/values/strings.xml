@@ -6,10 +6,14 @@
     <string name="home_add">Add something I want</string>
     <string name="home_empty">Nothing on your mind right now. When something catches your eye, pop it in and let it cool off.</string>
     <string name="jar_description">Jar is %1$d of %2$d full</string>
-    <string name="add_title">What do you want?</string>
-    <string name="add_hint">Name it</string>
+    <string name="add_title">Add something I want</string>
+    <string name="add_subtitle">It\'s okay to want nice things. Add it here and give yourself time.</string>
+    <string name="add_choose_icon">Choose an icon</string>
+    <string name="add_choose_icon_action">Icon: %1$s. Tap to change.</string>
+    <string name="add_choose_icon_close">Close icon picker</string>
+    <string name="add_hint">e.g. New headphones</string>
     <string name="add_ready_on">Ready on %1$s</string>
-    <string name="add_confirm">Start cooling off</string>
+    <string name="add_confirm">Add to my jar</string>
     <string name="add_snackbar">Added. Ready on %1$s</string>
     <string name="item_ready">Cooling-off finished. Tap to decide</string>
     <string name="item_decide_action">Decide</string>

@@ -61,9 +61,9 @@ class HomeViewModel(
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 8)
     val events: SharedFlow<HomeEvent> = _events.asSharedFlow()
 
-    fun addWant(name: String) {
+    fun addWant(name: String, iconKey: String) {
         viewModelScope.launch {
-            repository.addWant(name)?.let { _events.emit(HomeEvent.WantAdded(it)) }
+            repository.addWant(name, iconKey)?.let { _events.emit(HomeEvent.WantAdded(it)) }
         }
     }
 

@@ -13,6 +13,7 @@ import com.example.coolingoffjar.domain.JarRules
 import com.example.coolingoffjar.domain.JarTransition
 import com.example.coolingoffjar.domain.Settings
 import com.example.coolingoffjar.domain.Want
+import com.example.coolingoffjar.domain.WantIcons
 import com.example.coolingoffjar.domain.WantStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -67,7 +68,7 @@ class CoolingOffRepository(
     }
 
     /** Returns the saved want, or null if [name] is blank. unlockAt uses the cool-off setting as of now. */
-    suspend fun addWant(name: String): Want? {
+    suspend fun addWant(name: String, iconKey: String = WantIcons.DEFAULT): Want? {
         val trimmed = name.trim().take(MAX_NAME_LENGTH)
         if (trimmed.isEmpty()) return null
         val now = clock()
@@ -77,6 +78,7 @@ class CoolingOffRepository(
             createdAt = now,
             unlockAt = CoolOffRules.unlockAt(now, days),
             status = WantStatus.COOLING,
+            iconKey = WantIcons.normalize(iconKey),
         )
         return want.copy(id = wantDao.insert(want.toEntity()))
     }

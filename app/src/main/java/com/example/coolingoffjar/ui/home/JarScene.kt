@@ -60,7 +60,7 @@ import androidx.compose.ui.unit.dp
 import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.Want
 import com.example.coolingoffjar.ui.components.PaperNote
-import com.example.coolingoffjar.ui.components.ProgressDots
+import com.example.coolingoffjar.ui.components.JarProgress
 import com.example.coolingoffjar.ui.components.SproutGlyph
 import com.example.coolingoffjar.ui.components.TornPaperShape
 import com.example.coolingoffjar.ui.jar.AssetJar
@@ -193,18 +193,7 @@ fun JarScene(
                     modifier = Modifier.padding(top = 2.dp),
                 )
 
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    ProgressDots(filled = jarFilled, total = notBuysPerJar, modifier = Modifier.weight(1f, fill = false))
-                    Text(
-                        stringResource(R.string.scene_progress, jarFilled, notBuysPerJar),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = palette.textSecondary,
-                    )
-                }
+                JarProgress(filled = jarFilled, perJar = notBuysPerJar, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
 
                 Button(
                     onClick = onAdd,

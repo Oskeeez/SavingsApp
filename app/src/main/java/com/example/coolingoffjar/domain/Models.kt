@@ -11,6 +11,8 @@ data class Want(
     val unlockAt: Long,
     val status: WantStatus,
     val decidedAt: Long? = null,
+    /** Which icon it wears (see [WantIcons]). */
+    val iconKey: String = WantIcons.DEFAULT,
 )
 
 /** A jar of "not buy" coins. The current jar is the one with no [completedAt]. */
