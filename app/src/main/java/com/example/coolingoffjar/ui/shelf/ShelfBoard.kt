@@ -58,7 +58,10 @@ import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.ShelfCatalog
 import com.example.coolingoffjar.domain.ShelfGeometry
 import com.example.coolingoffjar.domain.ShelfLayout
+import com.example.coolingoffjar.domain.JarArt
 import com.example.coolingoffjar.ui.jar.AssetJar
+import com.example.coolingoffjar.ui.jar.JarAspect
+import com.example.coolingoffjar.ui.jar.jarStateRes
 import com.example.coolingoffjar.ui.theme.JarTheme
 import com.example.coolingoffjar.ui.util.formatDate
 import kotlin.math.roundToInt
@@ -108,7 +111,7 @@ fun ShelfBoard(
                 }
             Standing(
                 ctx, ShelfLayout.JAR.tier, ShelfLayout.slotXs(ShelfLayout.JAR.tier)[ShelfLayout.JAR.slot], JarHeightPx,
-                aspect = JAR_ASPECT,
+                aspect = JarAspect,
                 label = jarDescription,
                 onClick = { onOpenJar(jarCoords?.takeIf { it.isAttached }?.boundsInRoot()) },
                 extra = Modifier.onGloballyPositioned { jarCoords = it },
@@ -127,15 +130,8 @@ fun ShelfBoard(
             memoryJars.take(ShelfLayout.MEMORY_JARS.size).forEachIndexed { i, jar ->
                 val slot = ShelfLayout.MEMORY_JARS[i]
                 val description = stringResource(R.string.shelf_jar_description, jar.completedAt?.let { formatDate(it) }.orEmpty())
-                Standing(ctx, slot.tier, ShelfLayout.slotXs(slot.tier)[slot.slot], MemoryJarHeightPx, aspect = JAR_ASPECT, label = description, onClick = { onMemoryJar(jar) }) {
-                    Image(painterResource(R.drawable.item_jar_empty), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    val pile = painterResource(R.drawable.item_coin_pile)
-                    val pileRatio = pile.intrinsicSize.let { it.width / it.height }
-                    Image(
-                        pile, null,
-                        Modifier.align(Alignment.BottomCenter).offset(y = -(unit * MemoryJarHeightPx * 0.07f)).size(unit * MemoryJarHeightPx * JAR_ASPECT * 0.74f, unit * MemoryJarHeightPx * JAR_ASPECT * 0.74f / pileRatio),
-                        contentScale = ContentScale.Fit,
-                    )
+                Standing(ctx, slot.tier, ShelfLayout.slotXs(slot.tier)[slot.slot], MemoryJarHeightPx, aspect = JarAspect, label = description, onClick = { onMemoryJar(jar) }) {
+                    Image(painterResource(jarStateRes(JarArt.FULL)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                 }
             }
 
@@ -149,8 +145,6 @@ fun ShelfBoard(
         }
     }
 }
-
-private const val JAR_ASPECT = 154f / 211f
 
 private class Placement(val unit: Dp, val shelfWidth: Dp, val tiers: Int)
 
