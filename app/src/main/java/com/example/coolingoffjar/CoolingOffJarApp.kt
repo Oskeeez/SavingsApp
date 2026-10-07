@@ -20,6 +20,7 @@ class CoolingOffJarApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        if (isDebuggable) CrashReporter.install(this)
         container = AppContainer(this)
         appScope.launch { container.repository.ensureCurrentJar() }
         if (isDebuggable) {
