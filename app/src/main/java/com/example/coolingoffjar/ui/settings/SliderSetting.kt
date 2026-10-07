@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -37,6 +38,7 @@ import kotlin.math.roundToInt
  * The slider only saves when released, so dragging does not churn storage (or complete a jar early
  * when it is the coins-per-jar setting).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SliderSetting(
     title: String,
