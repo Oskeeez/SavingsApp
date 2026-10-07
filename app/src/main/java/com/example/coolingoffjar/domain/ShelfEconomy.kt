@@ -30,8 +30,10 @@ object ShelfEconomy {
         val balance = balance(coinsEarned, owned)
         if (balance < item.cost) return PurchaseCheck.NotEnoughCoins(item.cost - balance)
         val taken = ShelfLayout.resolve(owned).map { it.slotRef }.toSet()
-        if (wantedSlot == null) return PurchaseCheck.Ok(ShelfLayout.nextFreeSlot(taken))
-        val usable = ShelfLayout.isValid(wantedSlot) && !ShelfLayout.isReserved(wantedSlot) && wantedSlot !in taken
-        return if (usable) PurchaseCheck.Ok(wantedSlot) else PurchaseCheck.SlotUnavailable
+        if (wantedSlot == null) {
+            val next = ShelfLayout.nextFreeSlot(taken, item.surface) ?: return PurchaseCheck.SlotUnavailable
+            return PurchaseCheck.Ok(next)
+        }
+        return if (ShelfLayout.isUsable(wantedSlot, item.surface, taken)) PurchaseCheck.Ok(wantedSlot) else PurchaseCheck.SlotUnavailable
     }
 }

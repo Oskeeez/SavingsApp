@@ -36,5 +36,10 @@ fun artRes(key: String): Int = when (key) {
     "framed_landscape" -> R.drawable.item_framed_landscape
     "framed_flowers" -> R.drawable.item_framed_flowers
     "framed_night" -> R.drawable.item_framed_night
+    "note_take_your_time" -> R.drawable.note_take_your_time
+    "note_small_progress" -> R.drawable.note_small_progress
+    "note_good_days" -> R.drawable.note_good_days
+    "note_doing_great" -> R.drawable.note_doing_great
+    "note_kinder_you" -> R.drawable.note_kinder_you
     else -> error("No artwork for '$key'")
 }

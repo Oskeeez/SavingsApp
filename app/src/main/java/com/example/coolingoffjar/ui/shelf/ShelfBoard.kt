@@ -8,6 +8,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.zIndex
+import com.example.coolingoffjar.domain.ShelfDrag
+import com.example.coolingoffjar.domain.ShelfSurface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -73,7 +87,8 @@ import kotlin.math.roundToInt
 /**
  * The shelf. One piece of artwork (repeated tier by tier as it fills up) with real objects standing on it.
  * The jar is the biggest thing on it; the gacha machine opens the Shop and the clock opens Settings. Those
- * three always have the same place. Everything the user has bought stands in the slot it was given.
+ * three always have the same place. Everything the user has bought stands in the slot it was given, and can be
+ * picked up (press and hold) and dropped somewhere else. Notes hang on the wall above the boards.
  */
 @Composable
 fun ShelfBoard(
@@ -89,86 +104,176 @@ fun ShelfBoard(
     onMemoryJar: (Jar) -> Unit,
     modifier: Modifier = Modifier,
     placement: PlacementMode? = null,
+    showHeader: Boolean = true,
+    onMoveItem: ((String, SlotRef) -> Unit)? = null,
 ) {
+    // A drop that has been sent but not yet saved: shown straight away so the item does not flick back.
+    var pendingMove by remember { mutableStateOf<Pair<String, SlotRef>?>(null) }
+    LaunchedEffect(owned) { pendingMove = null }
     // Where everything really stands (old saved positions that clash with the jar are tidied up).
-    val placed = remember(owned) { ShelfLayout.resolve(owned) }
-    // While choosing a spot, one extra empty row is offered at the bottom so there is always somewhere new.
-    val tiers = remember(placed, placement != null) { ShelfLayout.tiersNeeded(placed) + if (placement != null) 1 else 0 }
+    val placed = remember(owned, pendingMove) {
+        val resolved = ShelfLayout.resolve(owned)
+        val pending = pendingMove
+        if (pending == null) resolved
+        else resolved.map { if (it.itemId == pending.first) it.copy(tier = pending.second.tier, slot = pending.second.slot) else it }
+    }
+    val placingEntry = placement?.let { ShelfCatalog.find(it.artKey) }
+    // While choosing a spot for a shelf item, one extra empty row is offered at the bottom so there is always somewhere new.
+    val extraRow = placement != null && placingEntry?.surface != ShelfSurface.WALL
+    val tiers = remember(placed, extraRow) { ShelfLayout.tiersNeeded(placed) + if (extraRow) 1 else 0 }
     var jarCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var dragId by remember { mutableStateOf<String?>(null) }
+    var dragOffset by remember { mutableStateOf(Offset.Zero) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
 
-    BoxWithConstraints(modifier.fillMaxWidth()) {
-        val width = maxWidth
-        val unit = width / ShelfGeometry.ART_WIDTH.toFloat() // dp per artwork pixel
-        val ctx = Placement(unit, width, tiers)
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (showHeader) ShelfHeader()
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val width = maxWidth
+            val unit = width / ShelfGeometry.ART_WIDTH.toFloat() // dp per artwork pixel
+            val unitPx = with(density) { unit.toPx() }
+            val ctx = Placement(unit, width, tiers)
+            val latestPlaced by rememberUpdatedState(placed)
+            val latestTiers by rememberUpdatedState(tiers)
+            val latestUnitPx by rememberUpdatedState(unitPx)
+            val latestMove by rememberUpdatedState(onMoveItem)
 
-        Box(Modifier.fillMaxWidth().height(unit * ShelfGeometry.composedHeight(tiers).toFloat())) {
-            ShelfBackdrop(tiers, Modifier.fillMaxSize())
-
-            // The permanent objects.
-            Standing(ctx, ShelfLayout.CLOCK.tier, ShelfLayout.slotXs(ShelfLayout.CLOCK.tier)[ShelfLayout.CLOCK.slot], ClockHeightPx, R.drawable.item_desk_clock,
-                label = stringResource(R.string.shelf_open_settings), onClick = onOpenSettings.takeIf { placement == null })
-            Standing(ctx, ShelfLayout.GACHA.tier, ShelfLayout.slotXs(ShelfLayout.GACHA.tier)[ShelfLayout.GACHA.slot], GachaHeightPx, R.drawable.item_gacha_machine,
-                label = stringResource(R.string.shelf_open_shop), onClick = onOpenShop.takeIf { placement == null })
-
-            // The jar: biggest thing here, and the way into the jar scene.
-            val jarDescription =
-                if (readyCount > 0) {
-                    pluralStringResource(R.plurals.jar_open_description_ready, readyCount, jarFilled, notBuysPerJar, readyCount)
-                } else {
-                    stringResource(R.string.jar_open_description, jarFilled, notBuysPerJar)
-                }
-            Standing(
-                ctx, ShelfLayout.JAR.tier, ShelfLayout.slotXs(ShelfLayout.JAR.tier)[ShelfLayout.JAR.slot], JarHeightPx,
-                aspect = JarAspect,
-                label = jarDescription,
-                onClick = { onOpenJar(jarCoords?.takeIf { it.isAttached }?.boundsInRoot()) }.takeIf { placement == null },
-                extra = Modifier.onGloballyPositioned { jarCoords = it },
-            ) {
-                AssetJar(
-                    filledCount = jarFilled,
-                    notBuysPerJar = notBuysPerJar,
-                    contentDescription = "",
-                    modifier = Modifier.fillMaxSize(),
-                    glow = jarGlow,
+            // Where the dragged thing would land if let go now (null = nowhere: it slides back).
+            fun targetFor(id: String): SlotRef? {
+                val entry = ShelfCatalog.find(id) ?: return null
+                val me = latestPlaced.firstOrNull { it.itemId == id } ?: return null
+                val (ax, ay) = ShelfDrag.anchor(entry, me.slotRef, latestTiers)
+                return ShelfDrag.dropTarget(
+                    latestPlaced, id, latestTiers,
+                    ax + dragOffset.x / latestUnitPx, ay + dragOffset.y / latestUnitPx,
                 )
-                if (readyCount > 0) ReadyBadge(readyCount, Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-4).dp))
             }
 
-            // Memories: completed jars.
-            memoryJars.take(ShelfLayout.MEMORY_JARS.size).forEachIndexed { i, jar ->
-                val slot = ShelfLayout.MEMORY_JARS[i]
-                val description = stringResource(R.string.shelf_jar_description, jar.completedAt?.let { formatDate(it) }.orEmpty())
-                Standing(ctx, slot.tier, ShelfLayout.slotXs(slot.tier)[slot.slot], MemoryJarHeightPx, aspect = JarAspect, label = description, onClick = { onMemoryJar(jar) }.takeIf { placement == null }) {
-                    Image(painterResource(jarStateRes(JarArt.FULL)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                }
-            }
+            Box(Modifier.fillMaxWidth().height(unit * ShelfGeometry.composedHeight(tiers).toFloat())) {
+                ShelfBackdrop(tiers, Modifier.fillMaxSize())
 
-            // Everything the user has bought.
-            for (item in placed) {
-                val entry = ShelfCatalog.find(item.itemId) ?: continue
-                val xs = ShelfLayout.slotXs(item.tier)
-                val x = xs.getOrNull(item.slot) ?: continue
-                Standing(ctx, item.tier, x, ShelfLayout.heightFor(entry, item.tier, tiers), artRes(entry.artKey), aspect = entry.aspect)
-            }
+                // The permanent objects.
+                Standing(ctx, ShelfLayout.CLOCK.tier, ShelfLayout.slotXs(ShelfLayout.CLOCK.tier)[ShelfLayout.CLOCK.slot], ClockHeightPx, R.drawable.item_desk_clock,
+                    label = stringResource(R.string.shelf_open_settings), onClick = onOpenSettings.takeIf { placement == null })
+                Standing(ctx, ShelfLayout.GACHA.tier, ShelfLayout.slotXs(ShelfLayout.GACHA.tier)[ShelfLayout.GACHA.slot], GachaHeightPx, R.drawable.item_gacha_machine,
+                    label = stringResource(R.string.shelf_open_shop), onClick = onOpenShop.takeIf { placement == null })
 
-            // Choosing where a new thing goes: every empty spot is a tappable marker; the chosen one shows the item.
-            if (placement != null) {
-                val entry = ShelfCatalog.find(placement.artKey)
-                val taken = placed.map { it.slotRef }.toSet()
-                for (slot in ShelfLayout.freeSlots(taken, tiers)) {
-                    val x = ShelfLayout.slotXs(slot.tier)[slot.slot]
-                    val label = stringResource(R.string.place_spot_description, slot.tier + 1, slot.slot + 1)
-                    if (slot == placement.selected && entry != null) {
-                        Standing(
-                            ctx, slot.tier, x, ShelfLayout.heightFor(entry, slot.tier, tiers), aspect = entry.aspect,
-                            label = label, onClick = { placement.onSelect(slot) },
-                            extra = Modifier.alpha(0.92f),
-                        ) {
-                            Image(painterResource(artRes(entry.artKey)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                        }
+                // The jar: biggest thing here, and the way into the jar scene.
+                val jarDescription =
+                    if (readyCount > 0) {
+                        pluralStringResource(R.plurals.jar_open_description_ready, readyCount, jarFilled, notBuysPerJar, readyCount)
                     } else {
-                        Standing(ctx, slot.tier, x, 44f, aspect = 1f, label = label, onClick = { placement.onSelect(slot) }) {
-                            SpotMarker()
+                        stringResource(R.string.jar_open_description, jarFilled, notBuysPerJar)
+                    }
+                Standing(
+                    ctx, ShelfLayout.JAR.tier, ShelfLayout.slotXs(ShelfLayout.JAR.tier)[ShelfLayout.JAR.slot], JarHeightPx,
+                    aspect = JarAspect,
+                    label = jarDescription,
+                    onClick = { onOpenJar(jarCoords?.takeIf { it.isAttached }?.boundsInRoot()) }.takeIf { placement == null },
+                    extra = Modifier.onGloballyPositioned { jarCoords = it },
+                ) {
+                    AssetJar(
+                        filledCount = jarFilled,
+                        notBuysPerJar = notBuysPerJar,
+                        contentDescription = "",
+                        modifier = Modifier.fillMaxSize(),
+                        glow = jarGlow,
+                    )
+                    if (readyCount > 0) ReadyBadge(readyCount, Modifier.align(Alignment.TopEnd).offset(x = 8.dp, y = (-4).dp))
+                }
+
+                // Memories: completed jars.
+                memoryJars.take(ShelfLayout.MEMORY_JARS.size).forEachIndexed { i, jar ->
+                    val slot = ShelfLayout.MEMORY_JARS[i]
+                    val description = stringResource(R.string.shelf_jar_description, jar.completedAt?.let { formatDate(it) }.orEmpty())
+                    Standing(ctx, slot.tier, ShelfLayout.slotXs(slot.tier)[slot.slot], MemoryJarHeightPx, aspect = JarAspect, label = description, onClick = { onMemoryJar(jar) }.takeIf { placement == null }) {
+                        Image(painterResource(jarStateRes(JarArt.FULL)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                    }
+                }
+
+                // Where a dragged thing would land.
+                val draggingId = dragId
+                if (draggingId != null) {
+                    val target = targetFor(draggingId)
+                    val entry = ShelfCatalog.find(draggingId)
+                    val mine = placed.firstOrNull { it.itemId == draggingId }
+                    if (target != null && entry != null && target != mine?.slotRef) {
+                        Standing(ctx, target.tier, ShelfLayout.slotXs(target.tier)[target.slot], 44f, aspect = 1f, wall = target.isWall) { SpotMarker() }
+                    }
+                }
+
+                // Everything the user has bought.
+                for (item in placed) {
+                    val entry = ShelfCatalog.find(item.itemId) ?: continue
+                    val x = ShelfLayout.slotXs(item.tier).getOrNull(item.slot) ?: continue
+                    val dragging = dragId == item.itemId
+                    val dragModifier =
+                        if (onMoveItem == null || placement != null) Modifier
+                        else Modifier
+                            .zIndex(if (dragging) 10f else 0f)
+                            .graphicsLayer {
+                                if (dragging) {
+                                    translationX = dragOffset.x
+                                    translationY = dragOffset.y
+                                    alpha = 0.92f
+                                }
+                            }
+                            .pointerInput(item.itemId) {
+                                detectDragGesturesAfterLongPress(
+                                    onDragStart = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        dragOffset = Offset.Zero
+                                        dragId = item.itemId
+                                    },
+                                    onDrag = { change, amount ->
+                                        change.consume()
+                                        dragOffset += amount
+                                    },
+                                    onDragEnd = {
+                                        val id = dragId
+                                        val target = if (id != null) targetFor(id) else null
+                                        val mine = latestPlaced.firstOrNull { it.itemId == id }
+                                        if (id != null && target != null && target != mine?.slotRef) {
+                                            pendingMove = id to target
+                                            latestMove?.invoke(id, target)
+                                        }
+                                        dragId = null
+                                        dragOffset = Offset.Zero
+                                    },
+                                    onDragCancel = {
+                                        dragId = null
+                                        dragOffset = Offset.Zero
+                                    },
+                                )
+                            }
+                    Standing(
+                        ctx, item.tier, x, ShelfLayout.heightFor(entry, item.tier, tiers), artRes(entry.artKey),
+                        aspect = entry.aspect, wall = item.slotRef.isWall, extra = dragModifier,
+                    )
+                }
+
+                // Choosing where a new thing goes: every empty spot is a tappable marker; the chosen one shows the item.
+                if (placement != null && placingEntry != null) {
+                    val entry = placingEntry
+                    val taken = placed.map { it.slotRef }.toSet()
+                    for (slot in ShelfLayout.freeSlots(taken, tiers, entry.surface)) {
+                        val x = ShelfLayout.slotXs(slot.tier)[slot.slot]
+                        val label =
+                            if (slot.isWall) stringResource(R.string.place_wall_spot_description, ShelfLayout.wallRow(slot.tier) + 1, slot.slot + 1)
+                            else stringResource(R.string.place_spot_description, slot.tier + 1, slot.slot + 1)
+                        if (slot == placement.selected) {
+                            Standing(
+                                ctx, slot.tier, x, ShelfLayout.heightFor(entry, slot.tier, tiers), aspect = entry.aspect, wall = slot.isWall,
+                                label = label, onClick = { placement.onSelect(slot) },
+                                extra = Modifier.alpha(0.92f),
+                            ) {
+                                Image(painterResource(artRes(entry.artKey)), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                            }
+                        } else {
+                            Standing(ctx, slot.tier, x, 44f, aspect = 1f, wall = slot.isWall, label = label, onClick = { placement.onSelect(slot) }) {
+                                SpotMarker()
+                            }
                         }
                     }
                 }
@@ -177,12 +282,37 @@ fun ShelfBoard(
     }
 }
 
+/** "My shelf" and its one-line promise, centred above the bookcase. */
+@Composable
+private fun ShelfHeader() {
+    val palette = JarTheme.palette
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 28.dp).padding(top = 8.dp, bottom = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            stringResource(R.string.shelf_header_title),
+            style = MaterialTheme.typography.headlineMedium,
+            color = palette.text,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            stringResource(R.string.shelf_header_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = palette.textSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+    }
+}
+
 private class Placement(val unit: Dp, val shelfWidth: Dp, val tiers: Int)
 
 /** The bookcase picture, drawn in slices so extra tiers can be repeated with no seams. */
 @Composable
 private fun ShelfBackdrop(tiers: Int, modifier: Modifier) {
-    val art = ImageBitmap.imageResource(R.drawable.shelf_light_brown)
+    val art = ImageBitmap.imageResource(R.drawable.shelf_sunlit)
     Canvas(modifier) {
         val unitPx = size.width / ShelfGeometry.ART_WIDTH
         val dstWidth = size.width.roundToInt()
@@ -201,7 +331,7 @@ private fun ShelfBackdrop(tiers: Int, modifier: Modifier) {
     }
 }
 
-/** An illustration standing on a board. */
+/** An illustration standing on a board (or hanging on the wall). */
 @Composable
 private fun BoxScope.Standing(
     ctx: Placement,
@@ -212,15 +342,20 @@ private fun BoxScope.Standing(
     aspect: Float? = null,
     label: String? = null,
     onClick: (() -> Unit)? = null,
+    wall: Boolean = false,
+    extra: Modifier = Modifier,
 ) {
     val painter = painterResource(image)
     val ratio = aspect ?: painter.intrinsicSize.let { it.width / it.height }
-    Standing(ctx, tier, x, heightPx, aspect = ratio, label = label, onClick = onClick) {
+    Standing(ctx, tier, x, heightPx, aspect = ratio, label = label, onClick = onClick, wall = wall, extra = extra) {
         Image(painter, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     }
 }
 
-/** Anything standing on a board: sized in artwork pixels, feet on the tier's stand line, with a contact shadow. */
+/**
+ * Anything standing on a board: sized in artwork pixels, feet on the tier's stand line, with a contact shadow.
+ * A [wall] item is centred on its wall row instead and has no shadow.
+ */
 @Composable
 private fun BoxScope.Standing(
     ctx: Placement,
@@ -230,18 +365,21 @@ private fun BoxScope.Standing(
     aspect: Float,
     label: String? = null,
     onClick: (() -> Unit)? = null,
+    wall: Boolean = false,
     extra: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val h = ctx.unit * heightPx
     val w = h * aspect
-    val feetY = ctx.unit * ShelfGeometry.standLine(tier, ctx.tiers).toFloat()
+    val top =
+        if (wall) ctx.unit * ShelfGeometry.wallCenterY(ShelfLayout.wallRow(tier)).toFloat() - h / 2
+        else ctx.unit * ShelfGeometry.standLine(tier, ctx.tiers).toFloat() - h
     Box(
         Modifier
             .align(Alignment.TopStart)
-            .offset(x = ctx.shelfWidth * x - w / 2, y = feetY - h)
+            .offset(x = ctx.shelfWidth * x - w / 2, y = top)
             .size(w, h)
-            .groundShadow()
+            .then(if (wall) Modifier else Modifier.groundShadow())
             .then(extra)
             .then(if (onClick != null && label != null) Modifier.pressable(label, onClick) else Modifier),
         content = content,

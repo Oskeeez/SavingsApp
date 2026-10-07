@@ -57,6 +57,7 @@ import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.CatalogItem
 import com.example.coolingoffjar.domain.ShelfCatalog
 import com.example.coolingoffjar.domain.ShelfCategory
+import com.example.coolingoffjar.domain.ShelfSurface
 import com.example.coolingoffjar.ui.components.CategoryChip
 import com.example.coolingoffjar.ui.components.CoinChip
 import com.example.coolingoffjar.ui.components.CoinIcon
@@ -69,7 +70,7 @@ import com.example.coolingoffjar.ui.theme.JarTheme
 /** The shelf strip along the top of the shop: what you have bought lately, or a cosy default. */
 internal fun bannerFor(recentOwnedIds: List<String>): List<BannerItem> {
     val xs = listOf(0.24f, 0.52f, 0.80f)
-    val mine = recentOwnedIds.takeLast(3)
+    val mine = recentOwnedIds.filter { ShelfCatalog.find(it)?.surface != ShelfSurface.WALL }.takeLast(3)
     val keys = if (mine.size >= 3) mine else (mine + listOf("cat_calico", "wooden_house", "framed_landscape").filter { it !in mine }).take(3)
     return keys.mapIndexed { i, key -> BannerItem(key, xs[i]) }
 }

@@ -66,7 +66,9 @@ fun PlacementDialog(
     onDismiss: () -> Unit,
 ) {
     val palette = JarTheme.palette
-    val firstFree = remember(owned) { ShelfLayout.nextFreeSlot(ShelfLayout.resolve(owned).map { it.slotRef }.toSet()) }
+    val firstFree = remember(owned) {
+        ShelfLayout.nextFreeSlot(ShelfLayout.resolve(owned).map { it.slotRef }.toSet(), item.surface) ?: ShelfLayout.nextFreeSlot(emptySet())
+    }
     var tier by rememberSaveable { mutableStateOf(firstFree.tier) }
     var slot by rememberSaveable { mutableStateOf(firstFree.slot) }
     val selected = SlotRef(tier, slot)
@@ -86,7 +88,9 @@ fun PlacementDialog(
                 // Start the view at the suggested spot so it is not off-screen on a tall shelf.
                 LaunchedEffect(Unit) {
                     val unit = with(density) { (width / ShelfGeometry.ART_WIDTH.toFloat()).toPx() }
-                    val feet = ShelfGeometry.standLine(firstFree.tier, ShelfLayout.tiersNeeded(ShelfLayout.resolve(owned)) + 1) * unit
+                    val feet =
+                        if (firstFree.isWall) ShelfGeometry.wallCenterY(ShelfLayout.wallRow(firstFree.tier)) * unit
+                        else ShelfGeometry.standLine(firstFree.tier, ShelfLayout.tiersNeeded(ShelfLayout.resolve(owned)) + 1) * unit
                     scroll.scrollTo((feet - with(density) { 330.dp.toPx() }).toInt().coerceAtLeast(0))
                 }
 
@@ -103,6 +107,7 @@ fun PlacementDialog(
                         onOpenShop = {},
                         onOpenSettings = {},
                         onMemoryJar = {},
+                        showHeader = false,
                         placement = PlacementMode(item.artKey, selected) { tier = it.tier; slot = it.slot },
                     )
                     Spacer(Modifier.height(96.dp + navBar))

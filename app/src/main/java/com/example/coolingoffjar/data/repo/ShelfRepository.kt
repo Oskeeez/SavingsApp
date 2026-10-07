@@ -8,6 +8,7 @@ import com.example.coolingoffjar.data.db.toEntity
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.PurchaseCheck
 import com.example.coolingoffjar.domain.ShelfEconomy
+import com.example.coolingoffjar.domain.ShelfLayout
 import com.example.coolingoffjar.domain.SlotRef
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -51,5 +52,13 @@ class ShelfRepository(
             }
             else -> PurchaseResult.Refused(check)
         }
+    }
+
+    /** Moves something already owned to a new spot. Refused (false) if the spot is reserved, taken or the wrong kind. */
+    suspend fun move(itemId: String, target: SlotRef): Boolean = db.withTransaction {
+        val owned = shelfDao.getOwned().map { it.toDomain() }
+        if (!ShelfLayout.canMove(owned, itemId, target)) return@withTransaction false
+        shelfDao.move(itemId, target.tier, target.slot)
+        true
     }
 }

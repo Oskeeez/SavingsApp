@@ -6,7 +6,11 @@ enum class ShelfCategory(val label: String) {
     PETS("Pets"),
     LIGHTING("Lighting"),
     ART("Art"),
+    NOTES("Notes"),
 }
+
+/** Where a thing goes: standing on the bookcase, or pinned to the wall above it. */
+enum class ShelfSurface { SHELF, WALL }
 
 /**
  * Something you can put on your shelf. [artKey] names the illustration (see `ShelfArt` in the UI);
@@ -22,6 +26,7 @@ data class CatalogItem(
     val artKey: String,
     val artWidthPx: Int,
     val artHeightPx: Int,
+    val surface: ShelfSurface = ShelfSurface.SHELF,
 ) {
     val aspect: Float get() = artWidthPx.toFloat() / artHeightPx
 }
@@ -29,7 +34,8 @@ data class CatalogItem(
 object ShelfCatalog {
     private fun item(
         art: String, name: String, category: ShelfCategory, cost: Int, w: Int, h: Int, description: String,
-    ) = CatalogItem(id = art, name = name, category = category, cost = cost, description = description, artKey = art, artWidthPx = w, artHeightPx = h)
+        surface: ShelfSurface = ShelfSurface.SHELF,
+    ) = CatalogItem(id = art, name = name, category = category, cost = cost, description = description, artKey = art, artWidthPx = w, artHeightPx = h, surface = surface)
 
     val items: List<CatalogItem> = listOf(
         // Plants (always in pots)
@@ -67,6 +73,12 @@ object ShelfCatalog {
         item("framed_landscape", "Framed print", ShelfCategory.ART, 4, 168, 174, "Rolling hills and a quiet river, in a warm wooden frame."),
         item("framed_flowers", "Flower print", ShelfCategory.ART, 4, 133, 148, "A small botanical print of white blossoms."),
         item("framed_night", "Night sky print", ShelfCategory.ART, 4, 130, 145, "A crescent moon over a sleepy field."),
+        // Notes: pinned to the wall above the shelf
+        item("note_take_your_time", "Take your time", ShelfCategory.NOTES, 2, 449, 479, "A little green-taped note to read whenever you feel rushed.", ShelfSurface.WALL),
+        item("note_small_progress", "Small progress", ShelfCategory.NOTES, 2, 507, 382, "Small progress still counts. Every wait is one.", ShelfSurface.WALL),
+        item("note_good_days", "Good days ahead", ShelfCategory.NOTES, 3, 421, 472, "A snapshot of mountains and sunshine, pinned up for later.", ShelfSurface.WALL),
+        item("note_doing_great", "You're doing great", ShelfCategory.NOTES, 3, 572, 435, "A page torn from a notebook, with a very sleepy cat.", ShelfSurface.WALL),
+        item("note_kinder_you", "A kinder you", ShelfCategory.NOTES, 3, 435, 480, "A scalloped sage tag with a little ribbon: a kinder you, every day.", ShelfSurface.WALL),
     )
 
     private val byId = items.associateBy { it.id }

@@ -22,6 +22,7 @@ import com.example.coolingoffjar.R
 import com.example.coolingoffjar.domain.ShelfCatalog
 import com.example.coolingoffjar.domain.ShelfGeometry
 import com.example.coolingoffjar.domain.ShelfLayout
+import com.example.coolingoffjar.domain.ShelfSurface
 import kotlin.math.roundToInt
 
 /** An item standing on a [ShelfBanner]: [x] is its centre as a fraction of the width. */
@@ -33,7 +34,7 @@ data class BannerItem(val artKey: String, val x: Float, val scale: Float = 1f)
  */
 @Composable
 fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
-    val art = ImageBitmap.imageResource(R.drawable.shelf_light_brown)
+    val art = ImageBitmap.imageResource(R.drawable.shelf_sunlit)
     val tiers = ShelfGeometry.MIN_TIERS
     BoxWithConstraints(modifier.fillMaxWidth()) {
         val width = maxWidth
@@ -51,11 +52,14 @@ fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
             }
             for (b in items) {
                 val item = ShelfCatalog.find(b.artKey) ?: continue
-                val h = unit * (ShelfLayout.heightFor(item, 1, tiers) * b.scale)
+                val wall = item.surface == ShelfSurface.WALL
+                val h = unit * (ShelfLayout.heightFor(item, 1, tiers) * b.scale * if (wall) 0.8f else 1f)
                 val w = h * item.aspect
+                // Things stand on the board; notes hang on the wall above it.
+                val y = if (wall) unit * (stand / 2f) - h / 2 else unit * stand.toFloat() - h
                 Image(
                     painterResource(artRes(item.artKey)), null,
-                    Modifier.offset(x = width * b.x - w / 2, y = unit * stand.toFloat() - h).size(w, h),
+                    Modifier.offset(x = width * b.x - w / 2, y = y).size(w, h),
                     contentScale = ContentScale.Fit,
                 )
             }
@@ -63,6 +67,6 @@ fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
     }
 }
 
-// The slice of artwork used: from just under the top frame down to the first board's front edge.
-private const val SRC_TOP = 58
-private const val SRC_HEIGHT = 140
+// The slice of artwork used: the wall above the first board, down to that board's front edge.
+private const val SRC_TOP = 416
+private const val SRC_HEIGHT = 146

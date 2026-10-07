@@ -12,6 +12,7 @@ import com.example.coolingoffjar.data.repo.ShelfRepository
 import com.example.coolingoffjar.domain.Jar
 import com.example.coolingoffjar.domain.OwnedItem
 import com.example.coolingoffjar.domain.Settings
+import com.example.coolingoffjar.domain.SlotRef
 import com.example.coolingoffjar.domain.Want
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -43,7 +44,7 @@ sealed interface HomeEvent {
 
 class HomeViewModel(
     private val repository: CoolingOffRepository,
-    shelfRepository: ShelfRepository,
+    private val shelfRepository: ShelfRepository,
 ) : ViewModel() {
 
     val state: StateFlow<HomeState> = combine(
@@ -93,6 +94,11 @@ class HomeViewModel(
     /** Spend the jar's freebie, optionally on one of the things being waited for. */
     fun useFreebie(jarId: Long, spentOnWantId: Long? = null) {
         viewModelScope.launch { repository.useFreebie(jarId, spentOnWantId) }
+    }
+
+    /** Drag and drop on the shelf: the item settles into [slot] if it is free. */
+    fun moveItem(itemId: String, slot: SlotRef) {
+        viewModelScope.launch { shelfRepository.move(itemId, slot) }
     }
 
     fun dismissCelebration() {

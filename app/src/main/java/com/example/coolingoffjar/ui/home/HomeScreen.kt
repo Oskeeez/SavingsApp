@@ -5,6 +5,8 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -38,7 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -81,8 +83,7 @@ fun HomeScreen(
     var spendJarId by rememberSaveable { mutableLongStateOf(-1L) }
     var justAddedId by remember { mutableLongStateOf(-1L) }
     var jarSceneOpen by rememberSaveable { mutableStateOf(false) }
-    var zoomOrigin by remember { mutableStateOf(Offset(0.3f, 0.3f)) } // in screen pixels once known; fraction until then
-    var zoomOriginIsPixels by remember { mutableStateOf(false) }
+    var jarBounds by remember { mutableStateOf<Rect?>(null) } // the jar on screen when it was tapped
 
     val now = rememberNowMillis(nextUnlockAt = state.wants.map { it.unlockAt }.filter { it > AppClock.now() }.minOrNull())
     val items = remember(state.wants, now) { CoolOffRules.sortForDisplay(state.wants, now) }
@@ -118,32 +119,40 @@ fun HomeScreen(
 
     BackHandler(enabled = jarSceneOpen) { jarSceneOpen = false }
 
-    // 0 = looking at the shelf, 1 = zoomed in to the jar scene. Instant-ish when animations are off.
+    // 0 = looking at the whole shelf, 1 = zoomed right in on the jar. One smooth move in both directions.
     val zoom by animateFloatAsState(
         targetValue = if (jarSceneOpen) 1f else 0f,
-        animationSpec = tween(if (motion) 450 else 120, easing = FastOutSlowInEasing),
+        animationSpec = tween(if (motion) 650 else 120, easing = FastOutSlowInEasing),
         label = "jarZoom",
     )
 
     val scroll = rememberScrollState()
 
     BoxWithConstraints(Modifier.fillMaxSize().background(JarTheme.palette.background)) {
-        fun origin(size: Size): TransformOrigin =
-            if (zoomOriginIsPixels && size.width > 0f) TransformOrigin(zoomOrigin.x / size.width, zoomOrigin.y / size.height)
-            else TransformOrigin(zoomOrigin.x, zoomOrigin.y)
+        val screenW = constraints.maxWidth.toFloat()
+        val screenH = constraints.maxHeight.toFloat()
+        // Where the jar should end up when zoomed in: centred, in the upper part of the screen above the panel.
+        val targetCenter = Offset(screenW / 2f, screenH * 0.24f)
+        val targetHeight = screenH * 0.30f
+        val bounds = jarBounds
+        val fullScale = if (bounds != null && bounds.height > 1f) (targetHeight / bounds.height).coerceIn(1f, 5f) else 1f
 
-        // ---- The shelf, scrollable. It swells as the jar scene comes up over it.
+        // ---- The shelf, scrollable. Zooming scales the whole picture about the jar and slides the jar to the target.
         Column(
             Modifier
                 .fillMaxSize()
                 .graphicsLayer {
-                    val s = 1f + 0.5f * zoom
-                    scaleX = s
-                    scaleY = s
-                    transformOrigin = origin(size)
+                    if (bounds != null) {
+                        val s = 1f + (fullScale - 1f) * zoom
+                        scaleX = s
+                        scaleY = s
+                        transformOrigin = TransformOrigin(bounds.center.x / size.width, bounds.center.y / size.height)
+                        translationX = (targetCenter.x - bounds.center.x) * zoom
+                        translationY = (targetCenter.y - bounds.center.y) * zoom
+                    }
                 }
                 .then(if (jarSceneOpen) Modifier.clearAndSetSemantics { } else Modifier)
-                .verticalScroll(scroll),
+                .verticalScroll(scroll, enabled = !jarSceneOpen),
         ) {
             Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars))
             ShelfBoard(
@@ -153,16 +162,16 @@ fun HomeScreen(
                 readyCount = readyCount,
                 jarGlow = if (celebration != null) 1f else 0f,
                 memoryJars = state.completedJars,
-                onOpenJar = { bounds ->
-                    if (bounds != null) {
-                        zoomOrigin = bounds.center
-                        zoomOriginIsPixels = true
+                onOpenJar = { rect ->
+                    if (rect != null) {
+                        jarBounds = rect
+                        jarSceneOpen = true
                     }
-                    jarSceneOpen = true
                 },
                 onOpenShop = onOpenShop,
                 onOpenSettings = onOpenSettings,
                 onMemoryJar = { memoryJarId = it.id },
+                onMoveItem = viewModel::moveItem,
             )
             // The shelf stands on a wooden floor: carry it under the gesture bar.
             Spacer(
@@ -173,12 +182,21 @@ fun HomeScreen(
             )
         }
 
-        // ---- The jar scene, zooming up out of the jar.
+        // ---- While zoomed in, a tap anywhere above the panel goes back to the whole shelf.
+        if (jarSceneOpen) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { jarSceneOpen = false }
+                    .clearAndSetSemantics { },
+            )
+        }
+
+        // ---- The words and buttons, rising as the jar fills the view.
         if (zoom > 0.001f) {
-            JarScene(
+            JarPanel(
                 jarFilled = shownJar.filledCount,
                 notBuysPerJar = state.settings.notBuysPerJar,
-                glow = if (celebration != null) 1f else 0f,
                 items = items,
                 now = now,
                 justAddedId = justAddedId,
@@ -189,11 +207,8 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val s = 0.25f + 0.75f * zoom
-                        scaleX = s
-                        scaleY = s
                         alpha = zoom
-                        transformOrigin = origin(size)
+                        translationY = (1f - zoom) * size.height * 0.2f
                     },
             )
         }

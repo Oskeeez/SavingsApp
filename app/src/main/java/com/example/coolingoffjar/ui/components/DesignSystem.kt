@@ -127,7 +127,7 @@ fun JarProgress(filled: Int, perJar: Int, modifier: Modifier = Modifier) {
     Row(
         modifier.semantics(mergeDescendants = true) { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally),
     ) {
         Image(
             painterResource(progressRes(state)), null,
