@@ -76,4 +76,7 @@ interface ShelfDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(item: OwnedItemEntity)
+
+    @Query("UPDATE owned_items SET tier = :tier, slot = :slot WHERE itemId = :itemId")
+    suspend fun move(itemId: String, tier: Int, slot: Int)
 }

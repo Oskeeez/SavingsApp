@@ -52,10 +52,13 @@ class ShelfTest {
     @Test fun `first purchases fill the shelf top to bottom, left to right`() {
         val first = ShelfLayout.nextFreeSlot(emptySet())
         assertEquals(SlotRef(0, 1), first) // the clock holds the top row's first slot
-        val second = ShelfLayout.nextFreeSlot(setOf(first))
-        assertEquals(SlotRef(0, 2), second)
-        // the second row belongs to the jar and the gacha machine, so the next stop is the third row
-        assertEquals(SlotRef(2, 0), ShelfLayout.nextFreeSlot(setOf(first, second)))
+        val filled = mutableSetOf(first)
+        assertEquals(SlotRef(0, 2), ShelfLayout.nextFreeSlot(filled).also { filled += it })
+        assertEquals(SlotRef(0, 3), ShelfLayout.nextFreeSlot(filled).also { filled += it })
+        // the second row keeps its two outer spots; the jar and the gacha machine hold the middle
+        assertEquals(SlotRef(1, 0), ShelfLayout.nextFreeSlot(filled).also { filled += it })
+        assertEquals(SlotRef(1, 3), ShelfLayout.nextFreeSlot(filled).also { filled += it })
+        assertEquals(SlotRef(2, 0), ShelfLayout.nextFreeSlot(filled))
     }
 
     @Test fun `placement is deterministic`() {
@@ -76,11 +79,11 @@ class ShelfTest {
 
     @Test fun `items are sized to fit their slot and compartment`() {
         val tiers = ShelfGeometry.MIN_TIERS
-        for (item in ShelfCatalog.items) for (tier in 1 until tiers) {
+        for (item in ShelfCatalog.items.filter { it.surface == ShelfSurface.SHELF }) for (tier in 0 until tiers) {
             val h = ShelfLayout.heightFor(item, tier, tiers)
             val w = h * item.aspect
             assertTrue("${item.id} h=$h", h > 20f && h <= ShelfGeometry.compartmentHeight(tier, tiers))
-            assertTrue("${item.id} w=$w", w <= 92.5f)
+            assertTrue("${item.id} w=$w", w <= ShelfLayout.MAX_ITEM_WIDTH + 0.5f)
         }
     }
 
@@ -97,10 +100,10 @@ class ShelfTest {
         }
     }
 
-    @Test fun `the five-tier shelf is close to the original artwork`() {
-        // top 196 + 3 middles of 143 + bottom 396
-        assertEquals(196 + 3 * 143 + 396, ShelfGeometry.composedHeight(5))
-        assertEquals(180, ShelfGeometry.standLine(0, 5))
+    @Test fun `the five-row shelf is as tall as the artwork it is cut from, minus floor`() {
+        // top 562 + 3 middles of 154 + bottom 370
+        assertEquals(562 + 3 * 154 + 370, ShelfGeometry.composedHeight(5))
+        assertEquals(546, ShelfGeometry.standLine(0, 5))
     }
 
     // ---- economy ----
@@ -156,7 +159,7 @@ class ShelfTest {
     @Test fun `a chosen slot that is reserved, taken or off the shelf is refused`() {
         val item = ShelfCatalog.find("pen_cup")!!
         val own = listOf(owned("rabbit", 3, 0))
-        for (bad in listOf(ShelfLayout.JAR, ShelfLayout.GACHA, ShelfLayout.CLOCK, ShelfLayout.MEMORY_JARS[0], SlotRef(3, 0), SlotRef(0, 5), SlotRef(-1, 0), SlotRef(2, 9))) {
+        for (bad in listOf(ShelfLayout.JAR, ShelfLayout.GACHA, ShelfLayout.CLOCK, ShelfLayout.MEMORY_JARS[0], SlotRef(3, 0), SlotRef(0, 5), SlotRef(-1, 0), SlotRef(2, 9), SlotRef(-3, 0))) {
             assertEquals("$bad", PurchaseCheck.SlotUnavailable, ShelfEconomy.check(item.id, own, 100, bad))
         }
     }
@@ -179,8 +182,8 @@ class ShelfTest {
     @Test fun `items on slots that are now reserved move to a free spot and the rest stay put`() {
         // Under the old layout the jar and gacha stood on row 1's neighbours: these two collide with them.
         val old = listOf(
-            OwnedItem("cat_calico", 1, 0, purchasedAt = 1),
-            OwnedItem("rabbit", 1, 1, purchasedAt = 2),
+            OwnedItem("cat_calico", 1, 1, purchasedAt = 1), // the jar's spot now
+            OwnedItem("rabbit", 1, 2, purchasedAt = 2), // the gacha machine's spot now
             OwnedItem("pen_cup", 3, 1, purchasedAt = 3),
         )
         val resolved = ShelfLayout.resolve(old).associateBy { it.itemId }
@@ -200,9 +203,113 @@ class ShelfTest {
     }
 
     @Test fun `a new purchase never lands on an item that was relocated`() {
-        val old = listOf(OwnedItem("cat_calico", 1, 0, 1)) // collides with the jar
+        val old = listOf(OwnedItem("cat_calico", 1, 1, 1)) // collides with the jar
         val relocated = ShelfLayout.resolve(old).single().slotRef
         val r = ShelfEconomy.check("pen_cup", old, 100)
         assertTrue(r is PurchaseCheck.Ok && r.slot != relocated)
+    }
+
+    // ---- notes on the wall ----
+    private val note get() = ShelfCatalog.items.first { it.surface == ShelfSurface.WALL }
+
+    @Test fun `notes are their own category and go on the wall`() {
+        val notes = ShelfCatalog.items.filter { it.category == ShelfCategory.NOTES }
+        assertEquals(5, notes.size)
+        assertTrue(notes.all { it.surface == ShelfSurface.WALL })
+        assertTrue(ShelfCatalog.items.filter { it.category != ShelfCategory.NOTES }.all { it.surface == ShelfSurface.SHELF })
+    }
+
+    @Test fun `a note goes to the first free wall spot, upper row first`() {
+        assertEquals(PurchaseCheck.Ok(SlotRef(-1, 0)), ShelfEconomy.check(note.id, emptyList(), 100))
+        val one = listOf(OwnedItem("note_small_progress", -1, 0, 1))
+        val r = ShelfEconomy.check(note.id, one, 100)
+        assertEquals(PurchaseCheck.Ok(SlotRef(-1, 1)), r)
+    }
+
+    @Test fun `a note can be placed on a chosen wall spot but not on the shelf, and a shelf item not on the wall`() {
+        assertEquals(PurchaseCheck.Ok(SlotRef(-2, 2)), ShelfEconomy.check(note.id, emptyList(), 100, SlotRef(-2, 2)))
+        assertEquals(PurchaseCheck.SlotUnavailable, ShelfEconomy.check(note.id, emptyList(), 100, SlotRef(2, 0)))
+        assertEquals(PurchaseCheck.SlotUnavailable, ShelfEconomy.check("pen_cup", emptyList(), 100, SlotRef(-1, 0)))
+    }
+
+    @Test fun `free wall spots never include shelf spots and the wall has room for every note`() {
+        val free = ShelfLayout.freeSlots(emptySet(), tiers = 5, surface = ShelfSurface.WALL)
+        assertTrue(free.all { it.isWall })
+        assertTrue(free.size >= ShelfCatalog.items.count { it.surface == ShelfSurface.WALL })
+        assertTrue(ShelfLayout.freeSlots(emptySet(), 5).none { it.isWall })
+    }
+
+    @Test fun `wall notes do not add shelf rows and fit the wall`() {
+        val resolved = ShelfLayout.resolve(listOf(OwnedItem(note.id, -2, 2, 1)))
+        assertEquals(ShelfGeometry.MIN_TIERS, ShelfLayout.tiersNeeded(resolved))
+        for (n in ShelfCatalog.items.filter { it.surface == ShelfSurface.WALL }) {
+            val h = ShelfLayout.heightFor(n, -1, 5)
+            assertTrue("${n.id} h=$h", h in 40f..120.5f)
+            assertTrue("${n.id} w=${h * n.aspect}", h * n.aspect <= ShelfLayout.MAX_NOTE_WIDTH + 0.5f)
+        }
+    }
+
+    // ---- dragging things to new places ----
+    @Test fun `an item can move to a free spot on its own surface`() {
+        val own = listOf(OwnedItem("pen_cup", 0, 1, 1), OwnedItem("note_small_progress", -1, 0, 2))
+        assertTrue(ShelfLayout.canMove(own, "pen_cup", SlotRef(3, 2)))
+        assertTrue(ShelfLayout.canMove(own, "note_small_progress", SlotRef(-2, 1)))
+    }
+
+    @Test fun `an item cannot move onto a reserved, taken, off-shelf or wrong-surface spot`() {
+        val own = listOf(OwnedItem("pen_cup", 0, 1, 1), OwnedItem("rabbit", 3, 0, 2), OwnedItem("note_small_progress", -1, 0, 3))
+        for (bad in listOf(ShelfLayout.JAR, ShelfLayout.GACHA, ShelfLayout.CLOCK, ShelfLayout.MEMORY_JARS[1], SlotRef(3, 0), SlotRef(0, 9), SlotRef(-1, 0).copy(slot = 7), SlotRef(-1, 1))) {
+            if (bad == SlotRef(-1, 1)) continue // that one is valid for a note; checked below
+            assertFalse("$bad", ShelfLayout.canMove(own, "pen_cup", bad))
+        }
+        assertFalse(ShelfLayout.canMove(own, "note_small_progress", SlotRef(3, 1))) // a note cannot stand on the shelf
+        assertTrue(ShelfLayout.canMove(own, "note_small_progress", SlotRef(-1, 1)))
+    }
+
+    @Test fun `moving to where it already is is fine, and unknown items cannot move`() {
+        val own = listOf(OwnedItem("pen_cup", 0, 1, 1))
+        assertTrue(ShelfLayout.canMove(own, "pen_cup", SlotRef(0, 1)))
+        assertFalse(ShelfLayout.canMove(own, "rabbit", SlotRef(3, 1)))
+    }
+
+    // ---- the drag maths ----
+    private val cup get() = ShelfCatalog.find("pen_cup")!!
+
+    @Test fun `dropping an item close to where it started leaves it there`() {
+        val own = listOf(OwnedItem("pen_cup", 2, 0, 1))
+        val (x, y) = ShelfDrag.anchor(cup, SlotRef(2, 0), 5)
+        assertEquals(SlotRef(2, 0), ShelfDrag.dropTarget(own, "pen_cup", 5, x + 6f, y - 4f))
+    }
+
+    @Test fun `dropping near a free spot moves it there`() {
+        val own = listOf(OwnedItem("pen_cup", 2, 0, 1))
+        val (x, y) = ShelfDrag.anchor(cup, SlotRef(3, 1), 5)
+        assertEquals(SlotRef(3, 1), ShelfDrag.dropTarget(own, "pen_cup", 5, x, y))
+    }
+
+    @Test fun `dropping on the jar or another item never lands there`() {
+        val own = listOf(OwnedItem("pen_cup", 2, 0, 1), OwnedItem("rabbit", 3, 0, 2))
+        val (jx, jy) = ShelfDrag.anchor(cup, ShelfLayout.JAR, 5)
+        val atJar = ShelfDrag.dropTarget(own, "pen_cup", 5, jx, jy)
+        assertTrue(atJar != ShelfLayout.JAR)
+        val (rx, ry) = ShelfDrag.anchor(cup, SlotRef(3, 0), 5)
+        assertTrue(ShelfDrag.dropTarget(own, "pen_cup", 5, rx, ry) != SlotRef(3, 0))
+    }
+
+    @Test fun `dropping far from every spot cancels the move`() {
+        val own = listOf(OwnedItem("pen_cup", 2, 0, 1))
+        assertNull(ShelfDrag.dropTarget(own, "pen_cup", 5, -2000f, -2000f))
+    }
+
+    @Test fun `a note dropped on the shelf snaps to a wall spot or cancels, never to the shelf`() {
+        val own = listOf(OwnedItem("note_small_progress", -1, 0, 1))
+        val (x, y) = ShelfDrag.anchor(ShelfCatalog.find("note_small_progress")!!, SlotRef(-2, 2), 5)
+        assertEquals(SlotRef(-2, 2), ShelfDrag.dropTarget(own, "note_small_progress", 5, x, y))
+        val onShelf = ShelfDrag.dropTarget(own, "note_small_progress", 5, 300f, 700f)
+        assertTrue(onShelf == null || onShelf.isWall)
+    }
+
+    @Test fun `unknown items have no drop target`() {
+        assertNull(ShelfDrag.dropTarget(emptyList(), "pen_cup", 5, 100f, 100f))
     }
 }
