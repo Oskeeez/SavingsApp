@@ -19,7 +19,7 @@ import com.example.coolingoffjar.domain.JarArt
 import com.example.coolingoffjar.ui.theme.JarTheme
 
 /** Width / height of the jar pictures (they are all cut to the same size, so the jar never shifts between states). */
-const val JarAspect = 186f / 215f
+const val JarAspect = 203f / 220f
 
 /** The jar picture for state 0 (empty) .. 5 (full). */
 @DrawableRes
