@@ -35,7 +35,8 @@ fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
     val art = ImageBitmap.imageResource(ShelfArtwork)
     val tiers = ShelfGeometry.MIN_TIERS
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val unit = maxWidth / ShelfGeometry.ART_WIDTH.toFloat()
+        val width = maxWidth
+        val unit = width / ShelfGeometry.ART_WIDTH.toFloat()
         val stand = ShelfGeometry.standLine(0, tiers) - SRC_TOP
         Box(Modifier.fillMaxWidth().height(unit * SRC_HEIGHT.toFloat())) {
             Canvas(Modifier.fillMaxSize()) {
@@ -53,7 +54,7 @@ fun ShelfBanner(items: List<BannerItem>, modifier: Modifier = Modifier) {
                 val w = h * item.aspect
                 Image(
                     painterResource(artRes(item.artKey)), null,
-                    Modifier.offset(x = maxWidth * b.x - w / 2, y = unit * stand.toFloat() - h).size(w, h),
+                    Modifier.offset(x = width * b.x - w / 2, y = unit * stand.toFloat() - h).size(w, h),
                     contentScale = ContentScale.Fit,
                 )
             }
