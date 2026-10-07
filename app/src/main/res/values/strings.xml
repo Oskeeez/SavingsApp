@@ -82,4 +82,15 @@
     <string name="dev_reset_title">Reset everything?</string>
     <string name="dev_reset_body">Deletes every item and every jar on this device. Settings are kept.</string>
     <string name="dev_reset_confirm">Reset</string>
+
+    <!-- Home: shelf and objects -->
+    <string name="shelf_open_shop">Open Shelf Shop</string>
+    <string name="shelf_open_settings">Open Settings</string>
+    <string name="home_show_more">%d more waiting</string>
+    <string name="home_show_less">Show fewer</string>
+    <string name="memory_jar_title">A jar you filled</string>
+    <string name="memory_jar_body">Completed %1$s. You waited it out, and the freebie has been used.</string>
+    <string name="ok">OK</string>
+    <string name="shop_title">Shelf Shop</string>
+    <string name="shop_soon">A first look at what is coming for your shelf. Nothing to buy just yet.</string>
 </resources>

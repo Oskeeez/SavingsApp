@@ -9,12 +9,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.coolingoffjar.ui.home.HomeScreen
 import com.example.coolingoffjar.ui.settings.SettingsScreen
-import com.example.coolingoffjar.ui.shelf.ShelfScreen
+import com.example.coolingoffjar.ui.shop.ShopScreen
 
 @Composable
 fun CoolingOffJarNavHost() {
     val navController = rememberNavController()
-    // Gentle cross-fades only; the jar is the star, not the transitions.
+    // Gentle cross-fades only; the room is the star, not the transitions.
     NavHost(
         navController = navController,
         startDestination = Destination.Home.route,
@@ -25,12 +25,12 @@ fun CoolingOffJarNavHost() {
     ) {
         composable(Destination.Home.route) {
             HomeScreen(
-                onOpenShelf = { navController.navigate(Destination.Shelf.route) },
+                onOpenShop = { navController.navigate(Destination.Shop.route) },
                 onOpenSettings = { navController.navigate(Destination.Settings.route) },
             )
         }
-        composable(Destination.Shelf.route) {
-            ShelfScreen(onBack = { navController.popBackStack() })
+        composable(Destination.Shop.route) {
+            ShopScreen(onBack = { navController.popBackStack() })
         }
         composable(Destination.Settings.route) {
             SettingsScreen(onBack = { navController.popBackStack() })

@@ -27,6 +27,8 @@ data class HomeState(
     val settings: Settings = Settings(),
     /** A just-completed jar whose "Freebie unlocked" card is waiting for Use freebie / Later. */
     val celebration: Jar? = null,
+    /** Completed jars, newest first: they stand on the shelf as memories. */
+    val completedJars: List<Jar> = emptyList(),
 )
 
 sealed interface HomeEvent {
@@ -41,7 +43,8 @@ class HomeViewModel(private val repository: CoolingOffRepository) : ViewModel() 
         repository.openWants,
         repository.settings,
         repository.pendingCelebration,
-    ) { jar, wants, settings, celebration -> HomeState(true, jar, wants, settings, celebration) }
+        repository.completedJars,
+    ) { jar, wants, settings, celebration, completed -> HomeState(true, jar, wants, settings, celebration, completed) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 
     private val _events = MutableSharedFlow<HomeEvent>(extraBufferCapacity = 8)
